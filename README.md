@@ -1,1 +1,1 @@
-# plugin-core-base
+# Core integration library

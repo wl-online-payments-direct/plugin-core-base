@@ -1,0 +1,34 @@
+{
+    "name": "wop-online-payments\/integration-core",
+    "description": "Core integration library",
+    "type": "library",
+    "license": "proprietary",
+    "require": {
+        "php": ">=7.4",
+        "ext-json": "*",
+        "ext-ctype": "*",
+        "wl-online-payments-direct\/sdk-php": "6.2.0"
+    },
+    "autoload": {
+        "psr-4": {
+            "WOP\\OnlinePayments\\Core\\": "src"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "WOP\\OnlinePayments\\Core\\Tests\\": "tests"
+        }
+    },
+    "require-dev": {
+        "phpunit\/phpunit": "^8.5",
+        "symfony\/console": "^5.4",
+        "phpstan\/phpstan": "^1.10",
+        "php-parallel-lint\/php-parallel-lint": "^1.3",
+        "friendsofphp\/php-cs-fixer": "^3.9"
+    },
+    "config": {
+        "platform": {
+            "php": "7.4"
+        }
+    }
+}
