@@ -1,5 +1,5 @@
 {
-    "name": "wop-online-payments\/integration-core",
+    "name": "wl-online-payments-direct\/plugin-core-base",
     "description": "Core integration library",
     "type": "library",
     "license": "proprietary",
