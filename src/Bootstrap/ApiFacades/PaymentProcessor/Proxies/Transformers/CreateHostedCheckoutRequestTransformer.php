@@ -38,7 +38,7 @@ class CreateHostedCheckoutRequestTransformer
         $request = new CreateHostedCheckoutRequest();
         $hostedCheckoutSpecificInput = new HostedCheckoutSpecificInput();
         $hostedCheckoutSpecificInput->setReturnUrl($input->getReturnUrl());
-        $hostedCheckoutSpecificInput->setLocale($cart->getCustomer()->getLocale());
+        $hostedCheckoutSpecificInput->setLocale($cart->getCustomer()->getFormattedLocale());
         $hostedCheckoutSpecificInput->setAllowedNumberOfPaymentAttempts($paymentSettings->getPaymentAttemptsNumber()->getPaymentAttemptsNumber());
         $paymentProductId = $input->getPaymentProductId() ?: PaymentProductId::hostedCheckout();
         if ($config = $paymentMethodCollection->get($paymentProductId)) {

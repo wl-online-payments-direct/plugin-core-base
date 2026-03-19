@@ -25,6 +25,6 @@ class CreateRefundResponse extends Response
     }
     public function toArray(): array
     {
-        return ['id' => $this->response->getId(), 'status' => $this->response->getStatus(), 'statusCode' => $this->response->getStatusCode()->getCode()];
+        return ['id' => $this->response->getId(), 'status' => $this->response->getStatus(), 'statusCode' => $this->response->getStatusCode()->getCode(), 'amount' => ['value' => $this->response->getAmount()->getValue(), 'currency' => $this->response->getAmount()->getCurrency()->getIsoCode()]];
     }
 }

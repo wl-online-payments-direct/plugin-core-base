@@ -84,7 +84,7 @@ class OrderTransformer
         $contactDetails = new ContactDetails();
         $contactDetails->setEmailAddress($cartCustomer->getContactDetails()->getEmail());
         $customer->setContactDetails($contactDetails);
-        $customer->setLocale($cartCustomer->getLocale());
+        $customer->setLocale($cartCustomer->getFormattedLocale());
         $customer->setMerchantCustomerId($cartCustomer->getMerchantCustomerId());
         $personalInfo = $cartCustomer->getBillingAddress()->getPersonalInformation();
         if ($personalInfo) {

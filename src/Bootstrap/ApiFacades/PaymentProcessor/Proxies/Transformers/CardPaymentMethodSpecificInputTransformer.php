@@ -6,6 +6,7 @@ use WOP\OnlinePayments\Core\BusinessLogic\Domain\Checkout\Cart\Cart;
 use WOP\OnlinePayments\Core\BusinessLogic\Domain\GeneralSettings\PaymentAction;
 use WOP\OnlinePayments\Core\BusinessLogic\Domain\GeneralSettings\PaymentSettings;
 use WOP\OnlinePayments\Core\BusinessLogic\Domain\HostedTokenization\Token;
+use WOP\OnlinePayments\Core\BusinessLogic\Domain\PaymentMethod\MethodAdditionalData\ThreeDSSettings\ExemptionType;
 use WOP\OnlinePayments\Core\BusinessLogic\Domain\PaymentMethod\MethodAdditionalData\ThreeDSSettings\ThreeDSSettings;
 use WOP\OnlinePayments\Core\BusinessLogic\Domain\PaymentMethod\PaymentMethodCollection;
 use WOP\OnlinePayments\Core\BusinessLogic\Domain\PaymentMethod\PaymentProductId;
@@ -36,20 +37,27 @@ class CardPaymentMethodSpecificInputTransformer
         if (null !== $paymentProductId && PaymentProductId::maestro()->equals($paymentProductId)) {
             $threeDSecure->setSkipAuthentication(\false);
         }
-        if ($cardsSettings->isEnable3ds() && $cardsSettings->isEnable3dsExemption() && null !== $cart->getTotalInEUR() && $cardsSettings->getExemptionLimit()->getValue() >= $cart->getTotalInEUR()->getValue() && null !== $cardsSettings->getExemptionType()) {
+        if ($cardsSettings->isEnable3ds() && $cardsSettings->isEnable3dsExemption() && !$cardsSettings->isEnforceStrongAuthentication() && null !== $cart->getTotalInEUR() && null !== $cardsSettings->getExemptionType()) {
             $threeDSecure->setExemptionRequest($cardsSettings->getExemptionType()->getType());
-            $threeDSecure->setSkipAuthentication(\true);
+            $threeDSecure->setSkipAuthentication(\false);
             $threeDSecure->setSkipSoftDecline(\false);
         }
         if ($cardsSettings->isEnforceStrongAuthentication()) {
             $threeDSecure->setChallengeIndicator('challenge-required');
+        }
+        $acquirerExemption = $cardsSettings->isEnable3ds() && $cardsSettings->getExemptionType() && $cardsSettings->getExemptionType()->equals(ExemptionType::transactionRiskAnalysis()) && $cart->getTotal()->getValue() < $cardsSettings->getExemptionLimit()->getValue();
+        if ($cardsSettings->getExemptionType() && $cardsSettings->getExemptionType()->equals(ExemptionType::lowValue()) && $cart->getTotal()->getValue() < $cardsSettings->getExemptionLimit()->getValue()) {
+            $threeDSecure->setChallengeIndicator('no-challenge-requested');
+        }
+        if ($cardsSettings->getExemptionType() && $cardsSettings->getExemptionType()->equals(ExemptionType::transactionRiskAnalysis()) && $cart->getTotal()->getValue() < $cardsSettings->getExemptionLimit()->getValue()) {
+            $threeDSecure->setChallengeIndicator('no-challenge-requested-risk-analysis-performed');
         }
         if ($cardsSettings->isEnable3ds()) {
             $paymentProduct130SpecificInput = new PaymentProduct130SpecificInput();
             $paymentProduct130ThreeDSecure = new PaymentProduct130SpecificThreeDSecure();
             $paymentProduct130ThreeDSecure->setUsecase('single-amount');
             $paymentProduct130ThreeDSecure->setNumberOfItems(min($cart->getLineItems()->getQuantitySum(), 99));
-            $paymentProduct130ThreeDSecure->setAcquirerExemption($threeDSecure->getSkipAuthentication());
+            $paymentProduct130ThreeDSecure->setAcquirerExemption($acquirerExemption);
             $paymentProduct130SpecificInput->setThreeDSecure($paymentProduct130ThreeDSecure);
             $cardPaymentMethodSpecificInput->setPaymentProduct130SpecificInput($paymentProduct130SpecificInput);
         }

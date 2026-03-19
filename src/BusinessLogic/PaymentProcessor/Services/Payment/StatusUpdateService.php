@@ -102,6 +102,9 @@ class StatusUpdateService
     }
     private function shouldTryOrderCreation(PaymentTransaction $paymentTransaction, PaymentDetails $paymentDetails): bool
     {
+        if (!$paymentDetails->isFullyPaid()) {
+            return \false;
+        }
         if ($paymentDetails->getStatusCode()->equals(StatusCode::authorized()) || $paymentDetails->getStatusCode()->equals(StatusCode::completed())) {
             return \true;
         }

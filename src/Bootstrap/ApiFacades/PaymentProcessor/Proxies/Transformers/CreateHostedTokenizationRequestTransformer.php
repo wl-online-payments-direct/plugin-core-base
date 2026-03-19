@@ -19,7 +19,7 @@ class CreateHostedTokenizationRequestTransformer
     {
         $request = new CreateHostedTokenizationRequest();
         $request->setAskConsumerConsent(!$cart->getCustomer()->isGuest());
-        $request->setLocale($cart->getCustomer()->getLocale());
+        $request->setLocale($cart->getCustomer()->getFormattedLocale());
         if ($productId && $productId->isCardType()) {
             $productFilter = new PaymentProductFiltersHostedTokenization();
             $filterRestriction = new PaymentProductFilterHostedTokenization();

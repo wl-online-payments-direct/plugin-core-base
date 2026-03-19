@@ -56,7 +56,7 @@ class MonitoringLogsService
      *
      * @throws Exception
      */
-    public function count(string $searchTerm): int
+    public function count(string $searchTerm = ''): int
     {
         $disconnectTime = $this->repository->getDisconnectTime();
         return $this->monitoringLogRepository->count($disconnectTime, $searchTerm);
