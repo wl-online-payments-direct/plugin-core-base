@@ -85,10 +85,18 @@ class PaymentTransactionRepository implements PaymentTransactionRepositoryInterf
         if (!$paymentId && !$paymentLinkId) {
             return null;
         }
+        $entity = $this->findPaymentTransactionEntity($paymentId !== null ? $paymentId->getTransactionId() : null, $returnHmac, $paymentLinkId);
+        if ($entity === null && $paymentId !== null) {
+            $entity = $this->findPaymentTransactionEntity($paymentId->getOldTransactionId(), $returnHmac, $paymentLinkId);
+        }
+        return $entity;
+    }
+    private function findPaymentTransactionEntity(?string $transactionId, ?string $returnHmac, ?string $paymentLinkId): ?PaymentTransactionEntity
+    {
         $queryFilter = new QueryFilter();
         $queryFilter->where('storeId', Operators::EQUALS, $this->storeContext->getStoreId());
-        if (null !== $paymentId) {
-            $queryFilter->where('transactionId', Operators::EQUALS, $paymentId->getTransactionId());
+        if (null !== $transactionId) {
+            $queryFilter->where('transactionId', Operators::EQUALS, $transactionId);
         }
         if (null !== $returnHmac) {
             $queryFilter->where('returnHmac', Operators::EQUALS, $returnHmac);
