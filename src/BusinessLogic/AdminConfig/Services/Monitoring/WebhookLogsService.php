@@ -10,6 +10,7 @@ use WOP\OnlinePayments\Core\BusinessLogic\Domain\Monitoring\Repositories\Webhook
 use WOP\OnlinePayments\Core\BusinessLogic\Domain\Monitoring\WebhookLog;
 use WOP\OnlinePayments\Core\BusinessLogic\Domain\Monitoring\WebhookStatuses;
 use WOP\OnlinePayments\Core\BusinessLogic\Domain\Payment\PaymentId;
+use WOP\OnlinePayments\Core\BusinessLogic\Domain\Payment\Repositories\PaymentTransactionRepositoryInterface;
 use WOP\OnlinePayments\Core\BusinessLogic\Domain\PaymentMethod\PaymentMethodDefaultConfigs;
 use WOP\OnlinePayments\Core\BusinessLogic\Domain\Webhook\WebhookData;
 use WOP\OnlinePayments\Core\BusinessLogic\PaymentProcessor\Proxies\PaymentsProxyInterface;
@@ -24,18 +25,21 @@ class WebhookLogsService
     protected PaymentsProxyInterface $paymentsProxy;
     protected DisconnectRepositoryInterface $disconnectRepository;
     protected ActiveBrandProviderInterface $activeBrandProvider;
+    protected PaymentTransactionRepositoryInterface $paymentTransactionRepository;
     /**
      * @param WebhookLogRepositoryInterface $repository
      * @param PaymentsProxyInterface $paymentsProxy
      * @param DisconnectRepositoryInterface $disconnectRepository
      * @param ActiveBrandProviderInterface $activeBrandProvider
+     * @param PaymentTransactionRepositoryInterface $paymentTransactionRepository
      */
-    public function __construct(WebhookLogRepositoryInterface $repository, PaymentsProxyInterface $paymentsProxy, DisconnectRepositoryInterface $disconnectRepository, ActiveBrandProviderInterface $activeBrandProvider)
+    public function __construct(WebhookLogRepositoryInterface $repository, PaymentsProxyInterface $paymentsProxy, DisconnectRepositoryInterface $disconnectRepository, ActiveBrandProviderInterface $activeBrandProvider, PaymentTransactionRepositoryInterface $paymentTransactionRepository)
     {
         $this->repository = $repository;
         $this->paymentsProxy = $paymentsProxy;
         $this->disconnectRepository = $disconnectRepository;
         $this->activeBrandProvider = $activeBrandProvider;
+        $this->paymentTransactionRepository = $paymentTransactionRepository;
     }
     /**
      * @param WebhookData $webhookData
@@ -47,17 +51,36 @@ class WebhookLogsService
     public function logWebhook(WebhookData $webhookData): void
     {
         $webhookPaymentId = PaymentId::parse($webhookData->getId());
-        $payment = $this->paymentsProxy->tryToGetPayment($webhookPaymentId);
+        $webhookLog = new WebhookLog($webhookData->getMerchantReference(), $webhookData->getId(), $this->resolvePaymentMethodName($webhookPaymentId), WebhookStatuses::statusMap[$webhookData->getStatusCategory()], $webhookData->getType(), new DateTime($webhookData->getCreated()), $webhookData->getStatusCode(), $webhookData->getWebhookBody(), $this->activeBrandProvider->getTransactionUrl() . $webhookPaymentId->getTransactionId());
+        $this->repository->saveWebhookLog($webhookLog);
+    }
+    /**
+     * Resolves the payment method name used to enrich the webhook log entry.
+     *
+     * Worldline is only queried for payments the plugin already has a local record of, so a webhook
+     * referencing an unknown (e.g. forged) payment id never triggers an outbound API call. Returns an
+     * empty string when the payment is unknown or its method cannot be determined.
+     *
+     * @param PaymentId $paymentId
+     *
+     * @return string
+     *
+     * @throws Exception
+     */
+    private function resolvePaymentMethodName(PaymentId $paymentId): string
+    {
+        if (null === $this->paymentTransactionRepository->get($paymentId)) {
+            return '';
+        }
+        $payment = $this->paymentsProxy->tryToGetPayment($paymentId);
         if (!$payment) {
             // Default to first payment transaction (_0) if payment id from webhook is maintenance transaction
-            $payment = $this->paymentsProxy->tryToGetPayment(PaymentId::parse($webhookPaymentId->getTransactionId()));
+            $payment = $this->paymentsProxy->tryToGetPayment(PaymentId::parse($paymentId->getTransactionId()));
         }
-        $paymentMethodName = '';
-        if ($payment && $payment->getProductId()) {
-            $paymentMethodName = PaymentMethodDefaultConfigs::getName($payment->getProductId(), $this->activeBrandProvider->getActiveBrand()->getPaymentMethodName())['translation'] ?? '';
+        if (!$payment || !$payment->getProductId()) {
+            return '';
         }
-        $webhookLog = new WebhookLog($webhookData->getMerchantReference(), $webhookData->getId(), $paymentMethodName, WebhookStatuses::statusMap[$webhookData->getStatusCategory()], $webhookData->getType(), new DateTime($webhookData->getCreated()), $webhookData->getStatusCode(), $webhookData->getWebhookBody(), $this->activeBrandProvider->getTransactionUrl() . PaymentId::parse((string) $webhookData->getId())->getTransactionId());
-        $this->repository->saveWebhookLog($webhookLog);
+        return PaymentMethodDefaultConfigs::getName($payment->getProductId(), $this->activeBrandProvider->getActiveBrand()->getPaymentMethodName())['translation'] ?? '';
     }
     /**
      * @param int $pageNumber

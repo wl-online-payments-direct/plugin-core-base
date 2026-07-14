@@ -2,6 +2,8 @@
 
 namespace WOP\OnlinePayments\Core\BusinessLogic\Domain\Payment;
 
+use WOP\OnlinePayments\Core\BusinessLogic\Domain\Payment\Exceptions\InvalidPaymentIdException;
+use WOP\OnlinePayments\Core\BusinessLogic\Domain\Translations\Model\TranslatableLabel;
 /**
  * Class PaymentId.
  *
@@ -12,13 +14,28 @@ class PaymentId
     private const NEW_FORMAT_PREFIX = '90000';
     private const OLD_FORMAT_PREFIX = '900000';
     private const FORMAT_SUFFIX_LENGTH = 3;
+    /**
+     * Accepted payment id formats are a numeric transaction id, optionally followed by an underscore and a
+     * numeric operation sequence index (e.g. "4365991440" or "4365991440_0" or "9000004375008553000").
+     */
+    private const VALID_FORMAT_PATTERN = '/^\d+(_\d+)?$/';
     private string $id;
     private function __construct(string $id)
     {
         $this->id = $id;
     }
+    /**
+     * @param string $id
+     *
+     * @return PaymentId
+     *
+     * @throws InvalidPaymentIdException
+     */
     public static function parse(string $id): PaymentId
     {
+        if (1 !== preg_match(self::VALID_FORMAT_PATTERN, $id)) {
+            throw new InvalidPaymentIdException(new TranslatableLabel('Invalid payment id format.', 'payment.invalidPaymentIdFormat'));
+        }
         if (\false === strpos($id, '_') && !self::isNewPaymentIdFormat($id)) {
             return new self($id . '_0');
         }

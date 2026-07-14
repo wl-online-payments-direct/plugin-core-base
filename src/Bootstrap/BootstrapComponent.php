@@ -223,7 +223,7 @@ class BootstrapComponent extends BaseBootstrapComponent
             return new MonitoringLogsService(ServiceRegister::getService(MonitoringLogRepositoryInterface::class), ServiceRegister::getService(DisconnectRepositoryInterface::class));
         }));
         ServiceRegister::registerService(WebhookLogsService::class, new SingleInstance(static function () {
-            return new WebhookLogsService(ServiceRegister::getService(WebhookLogRepositoryInterface::class), ServiceRegister::getService(PaymentsProxyInterface::class), ServiceRegister::getService(DisconnectRepositoryInterface::class), ServiceRegister::getService(ActiveBrandProviderInterface::class));
+            return new WebhookLogsService(ServiceRegister::getService(WebhookLogRepositoryInterface::class), ServiceRegister::getService(PaymentsProxyInterface::class), ServiceRegister::getService(DisconnectRepositoryInterface::class), ServiceRegister::getService(ActiveBrandProviderInterface::class), ServiceRegister::getService(PaymentTransactionRepositoryInterface::class));
         }));
         ServiceRegister::registerService(PaymentLinksService::class, new SingleInstance(static function () {
             return new PaymentLinksService(ServiceRegister::getService(PaymentLinksProxyInterface::class), ServiceRegister::getService(ThreeDSSettingsService::class), ServiceRegister::getService(PaymentSettingsRepositoryInterface::class), ServiceRegister::getService(PayByLinkSettingsRepositoryInterface::class), ServiceRegister::getService(PaymentLinkRepositoryInterface::class), ServiceRegister::getService(PaymentTransactionRepositoryInterface::class), ServiceRegister::getService(PaymentMethodService::class), ServiceRegister::getService(PaymentProductService::class));
