@@ -81,7 +81,8 @@ class WebhookTransformer implements WebhookTransformerInterface
     private function validateMerchantId(string $webhookBody, string $pspId): void
     {
         $body = json_decode($webhookBody, \true);
-        $merchantId = is_array($body) && isset($body['merchantId']) ? (string) $body['merchantId'] : '';
+        $merchantId = is_array($body) && isset($body['merchantId']) ? strtolower((string) $body['merchantId']) : '';
+        $pspId = strtolower($pspId);
         if ('' === $merchantId || !hash_equals($pspId, $merchantId)) {
             throw new WebhookMerchantMismatchException(new TranslatableLabel('Webhook merchant id does not match the configured merchant.', 'webhook.merchantIdMismatch'));
         }
