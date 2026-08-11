@@ -13,15 +13,18 @@ use WOP\OnlinePayments\Core\BusinessLogic\Domain\GeneralSettings\LogSettings;
  */
 class LogSettingsRequest extends Request
 {
-    protected bool $debugMode;
+    protected bool $webhookLogging;
+    protected bool $requestResponseLogging;
     protected int $days;
     /**
-     * @param bool $debugMode
+     * @param bool $webhookLogging
+     * @param bool $requestResponseLogging
      * @param int $days
      */
-    public function __construct(bool $debugMode, int $days)
+    public function __construct(bool $webhookLogging, bool $requestResponseLogging, int $days)
     {
-        $this->debugMode = $debugMode;
+        $this->webhookLogging = $webhookLogging;
+        $this->requestResponseLogging = $requestResponseLogging;
         $this->days = $days;
     }
     /**
@@ -31,6 +34,6 @@ class LogSettingsRequest extends Request
      */
     public function transformToDomainModel(): object
     {
-        return new LogSettings($this->debugMode, LogRecordsLifetime::create($this->days));
+        return new LogSettings($this->webhookLogging, $this->requestResponseLogging, LogRecordsLifetime::create($this->days));
     }
 }

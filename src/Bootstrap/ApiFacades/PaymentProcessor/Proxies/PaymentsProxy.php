@@ -4,6 +4,7 @@ namespace WOP\OnlinePayments\Core\Bootstrap\ApiFacades\PaymentProcessor\Proxies;
 
 use WOP\OnlinePayments\Core\Bootstrap\ApiFacades\PaymentProcessor\Proxies\Transformers\CreatePaymentRequestTransformer;
 use WOP\OnlinePayments\Core\Bootstrap\ApiFacades\PaymentProcessor\Proxies\Transformers\CreatePaymentResponseTransformer;
+use WOP\OnlinePayments\Core\Bootstrap\ApiFacades\PaymentProcessor\Proxies\Transformers\FeedbacksTransformer;
 use WOP\OnlinePayments\Core\Bootstrap\ApiFacades\PaymentProcessor\Proxies\Transformers\PaymentCaptureResponseTransformer;
 use WOP\OnlinePayments\Core\Bootstrap\ApiFacades\PaymentProcessor\Proxies\Transformers\PaymentDetailsResponseTransformer;
 use WOP\OnlinePayments\Core\Bootstrap\ApiFacades\PaymentProcessor\Proxies\Transformers\PaymentRefundResponseTransformer;
@@ -34,10 +35,15 @@ class PaymentsProxy implements PaymentsProxyInterface
     {
         $this->clientFactory = $clientFactory;
     }
-    public function create(PaymentRequest $request, ThreeDSSettings $cardsSettings, PaymentSettings $paymentSettings, ?Token $token = null, ?PaymentAction $paymentAction = null): PaymentResponse
+    public function create(PaymentRequest $request, ThreeDSSettings $cardsSettings, PaymentSettings $paymentSettings, ?Token $token = null, ?PaymentAction $paymentAction = null, string $fallbackLocale = ''): PaymentResponse
     {
         ContextLogProvider::getInstance()->setCurrentOrder($request->getCartProvider()->get()->getMerchantReference());
-        return CreatePaymentResponseTransformer::transform($this->clientFactory->get()->payments()->createPayment(CreatePaymentRequestTransformer::transform($request, $cardsSettings, $paymentSettings, $token, $paymentAction)));
+        $paymentRequest = CreatePaymentRequestTransformer::transform($request, $cardsSettings, $paymentSettings, $token, $paymentAction);
+        $feedbacks = FeedbacksTransformer::transform();
+        if ($feedbacks !== null) {
+            $paymentRequest->setFeedbacks($feedbacks);
+        }
+        return CreatePaymentResponseTransformer::transform($this->clientFactory->get()->payments()->createPayment($paymentRequest));
     }
     public function getPaymentDetails(PaymentId $paymentId): PaymentDetails
     {

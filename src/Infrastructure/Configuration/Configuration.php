@@ -209,6 +209,18 @@ abstract class Configuration extends Singleton
         return $this->getAsyncProcessUrl('auto-configure');
     }
     /**
+     * URL of this store's own inbound webhook endpoint. It is sent in the payment `feedbacks` object so
+     * Worldline delivers status notifications automatically, without the merchant configuring the URL in
+     * the portal by hand. Platforms override this; the empty default keeps it out of feedbacks when the
+     * platform does not support automatic webhooks.
+     *
+     * @return string
+     */
+    public function getWebhookUrl(): string
+    {
+        return '';
+    }
+    /**
      * Sets the HTTP method to be used for the async call.
      *
      * @param string $method Http method (GET or POST).

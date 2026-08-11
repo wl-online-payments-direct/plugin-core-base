@@ -4,6 +4,7 @@ namespace WOP\OnlinePayments\Core\Bootstrap\ApiFacades\PaymentProcessor\WebhookA
 
 use WOP\OnlinePayments\Core\Bootstrap\ApiFacades\Aspects\ErrorHandlingAspect;
 use WOP\OnlinePayments\Core\Bootstrap\ApiFacades\Aspects\StoreContextAspect;
+use WOP\OnlinePayments\Core\Bootstrap\ApiFacades\Aspects\TenantContextAspect;
 use WOP\OnlinePayments\Core\Bootstrap\Aspect\Aspects;
 use WOP\OnlinePayments\Core\BusinessLogic\Domain\Multistore\StoreContext;
 use WOP\OnlinePayments\Core\BusinessLogic\PaymentProcessor\ApiFacades\WebhooksAPI\Controller\WebhooksController;
@@ -14,6 +15,7 @@ use WOP\OnlinePayments\Core\BusinessLogic\PaymentProcessor\ApiFacades\WebhooksAP
  */
 class WebhookAPI
 {
+    private string $tenantId = '';
     private function __construct()
     {
     }
@@ -22,8 +24,13 @@ class WebhookAPI
         StoreContext::getInstance()->setOrigin('hooks');
         return Aspects::run(new ErrorHandlingAspect())->beforeEachMethodOfInstance(new WebhookAPI());
     }
+    public function forTenant(string $tenantId): self
+    {
+        $this->tenantId = $tenantId;
+        return $this;
+    }
     public function webhooks(string $storeId): object
     {
-        return Aspects::run(new ErrorHandlingAspect())->andRun(new StoreContextAspect($storeId))->beforeEachMethodOfService(WebhooksController::class);
+        return Aspects::run(new ErrorHandlingAspect())->andRun(new TenantContextAspect($this->tenantId))->andRun(new StoreContextAspect($storeId))->beforeEachMethodOfService(WebhooksController::class);
     }
 }

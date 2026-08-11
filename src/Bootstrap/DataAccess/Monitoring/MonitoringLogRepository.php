@@ -154,7 +154,7 @@ class MonitoringLogRepository implements MonitoringLogRepositoryInterface
         $queryFilter = new QueryFilter();
         $queryFilter->where('storeId', Operators::EQUALS, $this->storeContext->getStoreId())->where('mode', Operators::EQUALS, (string) $activeConnection->getMode());
         if ($disconnectTime) {
-            $queryFilter->where('createdAt', Operators::LESS_THAN, $disconnectTime->getTimestamp());
+            $queryFilter->where('createdAt', Operators::GREATER_THAN, $disconnectTime->getTimestamp());
         }
         if ($searchTerm) {
             $queryFilter->where('orderId', Operators::LIKE, '%' . $searchTerm . '%')->where('paymentNumber', Operators::LIKE, '%' . $searchTerm . '%')->where('message', Operators::LIKE, '%' . $searchTerm . '%');

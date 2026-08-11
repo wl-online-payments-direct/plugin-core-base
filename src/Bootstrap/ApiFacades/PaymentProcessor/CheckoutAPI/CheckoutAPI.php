@@ -4,6 +4,7 @@ namespace WOP\OnlinePayments\Core\Bootstrap\ApiFacades\PaymentProcessor\Checkout
 
 use WOP\OnlinePayments\Core\Bootstrap\ApiFacades\Aspects\ErrorHandlingAspect;
 use WOP\OnlinePayments\Core\Bootstrap\ApiFacades\Aspects\StoreContextAspect;
+use WOP\OnlinePayments\Core\Bootstrap\ApiFacades\Aspects\TenantContextAspect;
 use WOP\OnlinePayments\Core\Bootstrap\Aspect\Aspects;
 use WOP\OnlinePayments\Core\BusinessLogic\PaymentProcessor\ApiFacades\CheckoutAPI\Controller\HostedCheckoutController;
 use WOP\OnlinePayments\Core\BusinessLogic\PaymentProcessor\ApiFacades\CheckoutAPI\Controller\HostedTokenizationController;
@@ -16,6 +17,7 @@ use WOP\OnlinePayments\Core\BusinessLogic\PaymentProcessor\ApiFacades\CheckoutAP
  */
 class CheckoutAPI
 {
+    private string $tenantId = '';
     private function __construct()
     {
     }
@@ -26,6 +28,11 @@ class CheckoutAPI
     {
         return Aspects::run(new ErrorHandlingAspect())->beforeEachMethodOfInstance(new CheckoutAPI());
     }
+    public function forTenant(string $tenantId): self
+    {
+        $this->tenantId = $tenantId;
+        return $this;
+    }
     /**
      * @param string $storeId
      *
@@ -33,7 +40,7 @@ class CheckoutAPI
      */
     public function paymentMethods(string $storeId): object
     {
-        return Aspects::run(new ErrorHandlingAspect())->andRun(new StoreContextAspect($storeId))->beforeEachMethodOfService(PaymentMethodsController::class);
+        return Aspects::run(new ErrorHandlingAspect())->andRun(new TenantContextAspect($this->tenantId))->andRun(new StoreContextAspect($storeId))->beforeEachMethodOfService(PaymentMethodsController::class);
     }
     /**
      * @param string $storeId
@@ -42,7 +49,7 @@ class CheckoutAPI
      */
     public function hostedTokenization(string $storeId): object
     {
-        return Aspects::run(new ErrorHandlingAspect())->andRun(new StoreContextAspect($storeId))->beforeEachMethodOfService(HostedTokenizationController::class);
+        return Aspects::run(new ErrorHandlingAspect())->andRun(new TenantContextAspect($this->tenantId))->andRun(new StoreContextAspect($storeId))->beforeEachMethodOfService(HostedTokenizationController::class);
     }
     /**
      * @param string $storeId
@@ -51,7 +58,7 @@ class CheckoutAPI
      */
     public function payment(string $storeId): object
     {
-        return Aspects::run(new ErrorHandlingAspect())->andRun(new StoreContextAspect($storeId))->beforeEachMethodOfService(PaymentController::class);
+        return Aspects::run(new ErrorHandlingAspect())->andRun(new TenantContextAspect($this->tenantId))->andRun(new StoreContextAspect($storeId))->beforeEachMethodOfService(PaymentController::class);
     }
     /**
      * @param string $storeId
@@ -60,6 +67,6 @@ class CheckoutAPI
      */
     public function hostedCheckout(string $storeId): object
     {
-        return Aspects::run(new ErrorHandlingAspect())->andRun(new StoreContextAspect($storeId))->beforeEachMethodOfService(HostedCheckoutController::class);
+        return Aspects::run(new ErrorHandlingAspect())->andRun(new TenantContextAspect($this->tenantId))->andRun(new StoreContextAspect($storeId))->beforeEachMethodOfService(HostedCheckoutController::class);
     }
 }

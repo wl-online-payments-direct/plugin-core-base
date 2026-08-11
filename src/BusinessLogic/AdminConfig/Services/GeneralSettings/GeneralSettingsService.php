@@ -5,19 +5,21 @@ namespace WOP\OnlinePayments\Core\BusinessLogic\AdminConfig\Services\GeneralSett
 use WOP\OnlinePayments\Core\BusinessLogic\AdminConfig\Services\GeneralSettings\Repositories\LogSettingsRepositoryInterface;
 use WOP\OnlinePayments\Core\BusinessLogic\AdminConfig\Services\GeneralSettings\Repositories\PayByLinkSettingsRepositoryInterface;
 use WOP\OnlinePayments\Core\BusinessLogic\AdminConfig\Services\GeneralSettings\Repositories\PaymentSettingsRepositoryInterface;
+use WOP\OnlinePayments\Core\BusinessLogic\AdminConfig\Services\GeneralSettings\Repositories\WebhookSettingsRepositoryInterface;
 use WOP\OnlinePayments\Core\BusinessLogic\Domain\Connection\Repositories\ConnectionConfigRepositoryInterface;
 use WOP\OnlinePayments\Core\BusinessLogic\Domain\GeneralSettings\AutomaticCapture;
-use WOP\OnlinePayments\Core\BusinessLogic\Domain\GeneralSettings\Exceptions\InvalidAutomaticCaptureValueException;
+use WOP\OnlinePayments\Core\BusinessLogic\Domain\OrderStatusMapping\Models\OrderStatusMapping;
 use WOP\OnlinePayments\Core\BusinessLogic\Domain\GeneralSettings\Exceptions\InvalidLogRecordsLifetimeException;
 use WOP\OnlinePayments\Core\BusinessLogic\Domain\GeneralSettings\Exceptions\InvalidPaymentAttemptsNumberException;
+use WOP\OnlinePayments\Core\BusinessLogic\Domain\GeneralSettings\Exceptions\WebhookSettingsNotSupportedException;
 use WOP\OnlinePayments\Core\BusinessLogic\Domain\GeneralSettings\GeneralSettingsResponse;
 use WOP\OnlinePayments\Core\BusinessLogic\Domain\GeneralSettings\LogRecordsLifetime;
 use WOP\OnlinePayments\Core\BusinessLogic\Domain\GeneralSettings\LogSettings;
 use WOP\OnlinePayments\Core\BusinessLogic\Domain\GeneralSettings\PayByLinkSettings;
-use WOP\OnlinePayments\Core\BusinessLogic\Domain\GeneralSettings\PaymentAction;
-use WOP\OnlinePayments\Core\BusinessLogic\Domain\GeneralSettings\PaymentAttemptsNumber;
 use WOP\OnlinePayments\Core\BusinessLogic\Domain\GeneralSettings\PaymentSettings;
-use WOP\OnlinePayments\Core\BusinessLogic\Domain\Integration\Stores\StoreService;
+use WOP\OnlinePayments\Core\BusinessLogic\Domain\GeneralSettings\PaymentSettingsService;
+use WOP\OnlinePayments\Core\BusinessLogic\Domain\GeneralSettings\WebhookSettings;
+use WOP\OnlinePayments\Core\BusinessLogic\Domain\Translations\Model\TranslatableLabel;
 /**
  * Class GeneralSettingsService
  *
@@ -28,27 +30,31 @@ class GeneralSettingsService
     protected ConnectionConfigRepositoryInterface $connectionConfigRepository;
     protected LogSettingsRepositoryInterface $logSettingsRepository;
     protected PaymentSettingsRepositoryInterface $paymentSettingsRepository;
-    protected StoreService $storeService;
+    protected PaymentSettingsService $paymentSettingsService;
     protected PayByLinkSettingsRepositoryInterface $payByLinkSettingsRepository;
+    protected ?WebhookSettingsRepositoryInterface $webhookSettingsRepository;
     /**
      * @param ConnectionConfigRepositoryInterface $connectionConfigRepository
      * @param LogSettingsRepositoryInterface $logSettingsRepository
      * @param PaymentSettingsRepositoryInterface $paymentSettingsRepository
-     * @param StoreService $storeService
+     * @param PaymentSettingsService $paymentSettingsService
      * @param PayByLinkSettingsRepositoryInterface $payByLinkSettingsRepository
+     * @param WebhookSettingsRepositoryInterface|null $webhookSettingsRepository Only provided for
+     *  integrations running with automatic webhooks. With manual webhooks there are no configurable
+     *  webhook URLs, so no webhook settings storage is required from the integration.
      */
-    public function __construct(ConnectionConfigRepositoryInterface $connectionConfigRepository, LogSettingsRepositoryInterface $logSettingsRepository, PaymentSettingsRepositoryInterface $paymentSettingsRepository, StoreService $storeService, PayByLinkSettingsRepositoryInterface $payByLinkSettingsRepository)
+    public function __construct(ConnectionConfigRepositoryInterface $connectionConfigRepository, LogSettingsRepositoryInterface $logSettingsRepository, PaymentSettingsRepositoryInterface $paymentSettingsRepository, PaymentSettingsService $paymentSettingsService, PayByLinkSettingsRepositoryInterface $payByLinkSettingsRepository, ?WebhookSettingsRepositoryInterface $webhookSettingsRepository = null)
     {
         $this->connectionConfigRepository = $connectionConfigRepository;
         $this->logSettingsRepository = $logSettingsRepository;
         $this->paymentSettingsRepository = $paymentSettingsRepository;
-        $this->storeService = $storeService;
+        $this->paymentSettingsService = $paymentSettingsService;
         $this->payByLinkSettingsRepository = $payByLinkSettingsRepository;
+        $this->webhookSettingsRepository = $webhookSettingsRepository;
     }
     /**
      * @return GeneralSettingsResponse
      *
-     * @throws InvalidAutomaticCaptureValueException
      * @throws InvalidLogRecordsLifetimeException
      * @throws InvalidPaymentAttemptsNumberException
      */
@@ -58,22 +64,20 @@ class GeneralSettingsService
         $paymentSettings = $this->getPaymentSettings();
         $logSettings = $this->getLogSettings();
         $payByLinkSettings = $this->getPayByLinkSettings();
-        return new GeneralSettingsResponse($connectionSettings, $paymentSettings, $logSettings, $payByLinkSettings);
+        $webhookSettings = $this->getWebhookSettings();
+        return new GeneralSettingsResponse($connectionSettings, $paymentSettings, $logSettings, $payByLinkSettings, $webhookSettings);
     }
     /**
+     * Delegates to the one baseline reader shared with checkout, so the settings the admin displays
+     * are the settings a payment actually uses (ADR-0003 decision 9).
+     *
      * @return PaymentSettings
      *
-     * @throws InvalidAutomaticCaptureValueException
      * @throws InvalidPaymentAttemptsNumberException
      */
     public function getPaymentSettings(): PaymentSettings
     {
-        $savedSettings = $this->paymentSettingsRepository->getPaymentSettings();
-        if ($savedSettings) {
-            return $savedSettings;
-        }
-        $defaultMapping = $this->storeService->getDefaultOrderStatusMapping();
-        return new PaymentSettings(PaymentAction::authorizeCapture(), AutomaticCapture::create(-1), PaymentAttemptsNumber::create(10), \false, $defaultMapping->getPaymentCapturedStatus(), $defaultMapping->getPaymentErrorStatus(), $defaultMapping->getPaymentPendingStatus(), $defaultMapping->getPaymentAuthorizedStatus(), $defaultMapping->getPaymentCancelledStatus(), $defaultMapping->getPaymentRefundedStatus(), '', $defaultMapping->getPaymentPartiallyRefundedStatus());
+        return $this->paymentSettingsService->getPaymentSettings();
     }
     /**
      * @param PaymentSettings $paymentSettings
@@ -85,6 +89,39 @@ class GeneralSettingsService
         $this->paymentSettingsRepository->savePaymentSettings($paymentSettings);
     }
     /**
+     * Saves the Global > Jobs slice - automatic capture - leaving every other payment setting exactly
+     * as stored.
+     *
+     * The read-modify-write happens HERE rather than in the caller on purpose. `PaymentSettings` is
+     * persisted as one unit, so if each page echoed all fifteen fields back, two pages editing
+     * concurrently would each overwrite the other's slice with its own stale copy. Keeping the merge
+     * server-side means a page only ever sends what it owns.
+     *
+     * @param AutomaticCapture $automaticCapture
+     *
+     * @return void
+     *
+     * @throws InvalidPaymentAttemptsNumberException
+     */
+    public function saveJobsSettings(AutomaticCapture $automaticCapture): void
+    {
+        $this->paymentSettingsRepository->savePaymentSettings($this->getPaymentSettings()->withAutomaticCapture($automaticCapture));
+    }
+    /**
+     * Saves the Global > Danger Zone slice - the seven order-status mappings - leaving every other
+     * payment setting exactly as stored. See `saveJobsSettings` for why the merge is server-side.
+     *
+     * @param OrderStatusMapping $mapping
+     *
+     * @return void
+     *
+     * @throws InvalidPaymentAttemptsNumberException
+     */
+    public function saveOrderStatusMappingSettings(OrderStatusMapping $mapping): void
+    {
+        $this->paymentSettingsRepository->savePaymentSettings($this->getPaymentSettings()->withOrderStatusMapping($mapping));
+    }
+    /**
      * @return LogSettings
      *
      * @throws InvalidLogRecordsLifetimeException
@@ -92,7 +129,7 @@ class GeneralSettingsService
     public function getLogSettings(): LogSettings
     {
         $savedSettings = $this->logSettingsRepository->getLogSettings();
-        return $savedSettings ?: new LogSettings(\false, LogRecordsLifetime::create(14));
+        return $savedSettings ?: new LogSettings(\false, \false, LogRecordsLifetime::create(14));
     }
     /**
      * @param LogSettings $logSettings
@@ -119,5 +156,38 @@ class GeneralSettingsService
     public function savePayByLinkSettings(PayByLinkSettings $payByLinkSettings): void
     {
         $this->payByLinkSettingsRepository->savePayByLinkSettings($payByLinkSettings);
+    }
+    /**
+     * Returns empty webhook settings when the integration runs with manual webhooks.
+     *
+     * @return WebhookSettings
+     */
+    public function getWebhookSettings(): WebhookSettings
+    {
+        if ($this->webhookSettingsRepository === null) {
+            return new WebhookSettings();
+        }
+        return $this->webhookSettingsRepository->getWebhookSettings() ?: new WebhookSettings();
+    }
+    /**
+     * With manual webhooks there is nowhere to store additional webhook URLs and nothing that would send
+     * them, so saving any is refused rather than silently accepted and dropped. Saving an empty set stays
+     * a no-op, so an admin UI that still submits the (empty) field does not fail the whole save.
+     *
+     * @param WebhookSettings $webhookSettings
+     *
+     * @return void
+     *
+     * @throws WebhookSettingsNotSupportedException When URLs are given but the integration cannot store them.
+     */
+    public function saveWebhookSettings(WebhookSettings $webhookSettings): void
+    {
+        if ($this->webhookSettingsRepository === null) {
+            if (!empty($webhookSettings->getAdditionalWebhookUrls())) {
+                throw new WebhookSettingsNotSupportedException(new TranslatableLabel('Additional webhook URLs are not supported because this integration uses manual ' . 'webhooks. Register the webhook URL in the Worldline back office instead.', 'generalSettings.webhookSettings.notSupported'));
+            }
+            return;
+        }
+        $this->webhookSettingsRepository->saveWebhookSettings($webhookSettings);
     }
 }

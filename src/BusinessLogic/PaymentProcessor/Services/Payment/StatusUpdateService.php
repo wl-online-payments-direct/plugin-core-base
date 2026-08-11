@@ -86,6 +86,12 @@ class StatusUpdateService
             $this->saveToken($paymentTransaction, $paymentDetails);
             return;
         }
+        // The transaction can still resolve to a success or a failure while Pending, so the shop order
+        // must be left untouched (neither created nor updated) until a final status is known - the
+        // latest status code was already persisted on the transaction above.
+        if ($paymentDetails->getStatusCode()->isPending()) {
+            return;
+        }
         if ($paymentDetails->getStatusCode()->isCanceledOrRejected()) {
             $this->shopOrderService->cancelShopOrder($paymentTransaction, $paymentDetails, $newState);
             return;
@@ -109,6 +115,11 @@ class StatusUpdateService
             return \true;
         }
         if ($paymentDetails->getStatusCode()->isCanceledOrRejected() || $paymentDetails->getStatusCode()->isRefunded() || $paymentDetails->getStatusCode()->equals(StatusCode::incomplete())) {
+            return \false;
+        }
+        // Never create the order while Pending, even if the wait-time window has elapsed - the
+        // transaction can still progress to a success or a failure (see isPending() guard below).
+        if ($paymentDetails->getStatusCode()->isPending()) {
             return \false;
         }
         return !$this->getPaymentOutcome($paymentTransaction)->isWaiting();

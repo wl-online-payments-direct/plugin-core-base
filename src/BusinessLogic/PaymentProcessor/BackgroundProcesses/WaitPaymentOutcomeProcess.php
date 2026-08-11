@@ -19,9 +19,11 @@ use WOP\OnlinePayments\Core\BusinessLogic\PaymentProcessor\Services\PaymentLinks
 class WaitPaymentOutcomeProcess
 {
     /**
-     * Sleep interval in seconds between two consecutive payment transaction checks.
+     * Sleep interval in seconds between two consecutive payment transaction checks. Combined with
+     * StatusUpdateService::MAX_PENDING_TRANSACTIONS_WAIT_TIME (30s), this yields the 10 retries at
+     * 3-second intervals expected while the customer waits on the return page.
      */
-    private const SLEEP_INTERVAL = 5;
+    private const SLEEP_INTERVAL = 3;
     private PaymentTransactionRepositoryInterface $paymentTransactionRepository;
     private StatusUpdateService $statusUpdateService;
     private TimeProviderInterface $timeProvider;
@@ -44,8 +46,20 @@ class WaitPaymentOutcomeProcess
     }
     public function startWaiting(PaymentId $paymentId, ?string $returnHmac = null): void
     {
+        // If the customer closes their browser right after being redirected back, the status check
+        // and order creation below must still run to completion in the background.
+        ignore_user_abort(\true);
         $this->resetTransactionReturnedAtDate($paymentId, $returnHmac);
+        // Attempt to resolve the outcome immediately instead of waiting for a webhook, since without
+        // one it otherwise takes a full wait-time window to reach a final status. Safe to race with a
+        // concurrently-arriving webhook: both converge on updateOrderStatus(), which only creates the
+        // shop order under lockOrderCreation()/unlockOrderCreation().
+        $this->statusUpdateService->updateOrderStatus($paymentId, $returnHmac);
         $paymentOutcome = $this->getPaymentOutcome($paymentId, $returnHmac);
+        if (!$paymentOutcome->isWaiting()) {
+            // Already resolved by the immediate call above - avoid a redundant final check.
+            return;
+        }
         while ($paymentOutcome->isWaiting()) {
             $this->timeProvider->sleep(self::SLEEP_INTERVAL);
             $paymentOutcome = $this->getPaymentOutcome($paymentId, $returnHmac);

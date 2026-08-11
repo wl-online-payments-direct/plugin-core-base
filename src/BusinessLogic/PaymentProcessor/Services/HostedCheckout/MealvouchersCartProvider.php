@@ -29,6 +29,7 @@ class MealvouchersCartProvider implements CartProvider
     {
         $cart = $this->cartProvider->get();
         $mealvouchersCart = new Cart($cart->getMerchantReference(), $cart->getTotal(), $cart->getTotalInEUR(), $cart->getCustomer(), $this->mergeLineItems($cart->getLineItems()), $cart->getShipping(), $cart->getDiscount());
+        $mealvouchersCart->setDescriptor($cart->getDescriptor());
         return $mealvouchersCart;
     }
     private function mergeLineItems(LineItemCollection $lineItems): LineItemCollection
@@ -67,10 +68,8 @@ class MealvouchersCartProvider implements CartProvider
     private function getMergedUnitPrice(LineItemCollection $lineItems): TaxableAmount
     {
         return array_reduce($lineItems->toArray(), function (?TaxableAmount $total, LineItem $lineItem) {
-            if (null === $total) {
-                return $lineItem->getUnitPrice()->multiply($lineItem->getQuantity());
-            }
-            return $total->plus($lineItem->getUnitPrice()->multiply($lineItem->getQuantity()));
+            $lineTotal = $lineItem->getLineTotal() ?? $lineItem->getUnitPrice()->multiply($lineItem->getQuantity());
+            return null === $total ? $lineTotal : $total->plus($lineTotal);
         });
     }
     private function getMergedProductUnit(LineItemCollection $lineItems): string

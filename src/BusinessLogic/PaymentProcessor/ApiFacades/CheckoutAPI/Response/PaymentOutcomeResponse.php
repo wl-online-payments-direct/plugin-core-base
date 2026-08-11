@@ -19,11 +19,15 @@ class PaymentOutcomeResponse extends Response
     }
     public function toArray(): array
     {
-        return ['isWaiting' => $this->isWaiting()];
+        return ['isWaiting' => $this->isWaiting(), 'isOutcomeUnknown' => $this->isOutcomeUnknown()];
     }
     public function isWaiting(): bool
     {
         return $this->paymentOutcome->isWaiting();
+    }
+    public function isOutcomeUnknown(): bool
+    {
+        return $this->paymentOutcome->isOutcomeUnknown();
     }
     public function getPaymentTransaction(): PaymentTransaction
     {

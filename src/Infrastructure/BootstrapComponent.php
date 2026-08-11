@@ -2,7 +2,7 @@
 
 namespace WOP\OnlinePayments\Core\Infrastructure;
 
-use WOP\OnlinePayments\Core\Infrastructure\Configuration\ConfigurationManager;
+use WOP\OnlinePayments\Core\Bootstrap\Configuration\ConfigurationManager;
 use WOP\OnlinePayments\Core\Infrastructure\Http\CurlHttpClient;
 use WOP\OnlinePayments\Core\Infrastructure\Http\HttpClient;
 use WOP\OnlinePayments\Core\Infrastructure\TaskExecution\AsyncProcessStarterService;

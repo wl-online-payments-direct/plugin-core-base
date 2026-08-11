@@ -11,9 +11,33 @@ use WOP\OnlinePayments\Core\BusinessLogic\Domain\Translations\Model\Translatable
  */
 class PaymentProductId
 {
-    const SUPPORTED_PAYMENT_PRODUCTS = [self::CARDS, self::HOSTED_CHECKOUT, self::ALIPAY, self::APPLE_PAY, self::BANK_TRANSFER, self::CADO, self::BIZUM, self::CADHOC, self::CHEQUE_VACANCES_CONNECT, self::CETELEM, self::COFIDIS, self::CPAY, self::AMERICAN_EXPRESS, self::BANCONTACT, self::CARTE_BANCAIRE, self::DINERS_CLUB, self::DISCOVER, self::JCB, self::MASTERCARD, self::MAESTRO, self::UPI, self::VISA, self::EPS, self::GOOGLE_PAY, self::IDEAL, self::ILLICADO, self::INTERSOLVE, self::KLARNA, self::MB_WAY, self::MEALVOUCHERS, self::MULTIBANCO, self::ONEY_3X, self::ONEY_4X, self::ONEY_BANK_CARD, self::ONEY_FINANCEMENT_LONG, self::ONEY_BRANDED_GIFT_CARD, self::PRZELEWY24, self::PAYPAL, self::POSTFINANCE_PAY, self::SEPA_DIRECT_DEBIT, self::SOFINCO, self::SPIRIT_OF_CADEAU, self::TWINT, self::WECHAT_PAY];
-    public const CARDS = 'cards';
+    /**
+     * The products a merchant may configure and enable, and the only ids this class will parse.
+     *
+     * `cards` - V1's single grouped card method - is deliberately absent: functional requirements p11
+     * replaces it with Embedded Cards and Redirection to Cards. Core is a library and does not migrate
+     * data; rewriting a stored `cards` row onto one of the parents belongs to each integration's own
+     * upgrade step. An unmigrated row fails loudly on parse rather than being silently reinterpreted
+     * here.
+     */
+    const SUPPORTED_PAYMENT_PRODUCTS = [self::EMBEDDED_CARDS, self::REDIRECTION_TO_CARDS, self::HOSTED_CHECKOUT, self::PAY_BY_LINK, self::ALIPAY, self::APPLE_PAY, self::BANK_TRANSFER, self::CADO, self::BIZUM, self::BLIK, self::CADHOC, self::CHEQUE_VACANCES_CONNECT, self::CETELEM, self::COFIDIS, self::CPAY, self::AMERICAN_EXPRESS, self::BANCONTACT, self::CARTE_BANCAIRE, self::DINERS_CLUB, self::DISCOVER, self::JCB, self::MASTERCARD, self::MAESTRO, self::UPI, self::VISA, self::EPS, self::GOOGLE_PAY, self::IDEAL, self::ILLICADO, self::INTERSOLVE, self::KLARNA, self::KLARNA_PAY_LATER, self::KLARNA_FINANCING, self::KLARNA_BANK_TRANSFER, self::KLARNA_DIRECT_DEBIT, self::KLARNA_PAY_WITH_KLARNA, self::LINXO, self::MB_WAY, self::MEALVOUCHERS, self::MULTIBANCO, self::ONEY_3X, self::ONEY_4X, self::ONEY_BANK_CARD, self::ONEY_FINANCEMENT_LONG, self::ONEY_BRANDED_GIFT_CARD, self::PRZELEWY24, self::PAYPAL, self::PLEDG, self::POSTFINANCE_PAY, self::SEPA_DIRECT_DEBIT, self::SOFINCO, self::SPIRIT_OF_CADEAU, self::TWINT, self::WECHAT_PAY];
+    /**
+     * Always an iframe and always grouped, per functional requirements p11 - so neither the flow type
+     * nor the grouping flag is merchant-settable on it. Like CARDS and HOSTED_CHECKOUT it has no
+     * numeric Worldline product id.
+     */
+    public const EMBEDDED_CARDS = 'embedded_cards';
+    /**
+     * Always a redirect and always grouped, per functional requirements p11. Distinct from
+     * HOSTED_CHECKOUT, which is "Redirection to Worldline" and has its own row in the list mockup.
+     */
+    public const REDIRECTION_TO_CARDS = 'redirection_to_cards';
     public const HOSTED_CHECKOUT = 'hosted_checkout';
+    /**
+     * Pay by Link is a Worldline hosted page delivered as a link rather than a payment product of its
+     * own, so - like CARDS and HOSTED_CHECKOUT - it has no numeric Worldline product id.
+     */
+    public const PAY_BY_LINK = 'pay_by_link';
     public const ALIPAY = '5405';
     public const APPLE_PAY = '302';
     public const BANK_TRANSFER = '5408';
@@ -42,6 +66,11 @@ class PaymentProductId
     public const ILLICADO = '3112';
     public const INTERSOLVE = '5700';
     public const KLARNA = '3301';
+    public const KLARNA_PAY_LATER = '3302';
+    public const KLARNA_FINANCING = '3303';
+    public const KLARNA_BANK_TRANSFER = '3304';
+    public const KLARNA_DIRECT_DEBIT = '3305';
+    public const KLARNA_PAY_WITH_KLARNA = '3306';
     public const MB_WAY = '5908';
     public const MEALVOUCHERS = '5402';
     public const MULTIBANCO = '5500';
@@ -52,14 +81,22 @@ class PaymentProductId
     public const ONEY_BRANDED_GIFT_CARD = '5600';
     public const PRZELEWY24 = '3124';
     public const PAYPAL = '840';
+    public const PLEDG = '5300';
     public const POSTFINANCE_PAY = '3203';
     public const SEPA_DIRECT_DEBIT = '771';
     public const SOFINCO = '5131';
     public const SPIRIT_OF_CADEAU = '3116';
     public const TWINT = '5407';
     public const WECHAT_PAY = '5404';
+    public const BLIK = '3204';
+    public const LINXO = '5003';
     public const CARD_BRANDS = [self::AMERICAN_EXPRESS, self::CARTE_BANCAIRE, self::DINERS_CLUB, self::DISCOVER, self::JCB, self::MASTERCARD, self::MAESTRO, self::UPI, self::VISA];
-    public const SEPARATE_CAPTURE_SUPPORTED = [self::HOSTED_CHECKOUT, self::APPLE_PAY, self::BIZUM, self::CETELEM, self::COFIDIS, self::CPAY, self::CARDS, self::GOOGLE_PAY, self::KLARNA, self::MB_WAY, self::ONEY_BANK_CARD, self::PAYPAL, self::POSTFINANCE_PAY, self::SOFINCO, self::TWINT, self::WECHAT_PAY];
+    /**
+     * Products offering a merchant-configured fixed soft descriptor, sent as
+     * order.references.descriptor. Pledg is one of them per the V2 functional requirements (p11).
+     */
+    public const DESCRIPTOR_SUPPORTED = [self::LINXO, self::PLEDG, self::SOFINCO];
+    public const SEPARATE_CAPTURE_SUPPORTED = [self::HOSTED_CHECKOUT, self::PAY_BY_LINK, self::EMBEDDED_CARDS, self::REDIRECTION_TO_CARDS, self::APPLE_PAY, self::BIZUM, self::CETELEM, self::COFIDIS, self::CPAY, self::GOOGLE_PAY, self::KLARNA, self::MB_WAY, self::ONEY_BANK_CARD, self::PAYPAL, self::POSTFINANCE_PAY, self::SOFINCO, self::TWINT, self::WECHAT_PAY];
     private string $id;
     private function __construct(string $id)
     {
@@ -81,10 +118,22 @@ class PaymentProductId
         }
         return new self($id);
     }
+    /**
+     * Product ids that may be listed in a hosted-checkout page product filter. Callers cast these to
+     * int, so the ids without a numeric Worldline product id (CARDS, HOSTED_CHECKOUT, PAY_BY_LINK) must
+     * be dropped here or they would be sent as product 0.
+     *
+     * @param string[] $supportedPaymentProducts
+     *
+     * @return string[]
+     */
     public static function getForHostedCheckoutPage(array $supportedPaymentProducts): array
     {
-        return array_diff($supportedPaymentProducts, [self::CARDS, self::HOSTED_CHECKOUT, self::MEALVOUCHERS]);
+        return array_diff($supportedPaymentProducts, [self::EMBEDDED_CARDS, self::REDIRECTION_TO_CARDS, self::HOSTED_CHECKOUT, self::PAY_BY_LINK, self::MEALVOUCHERS]);
     }
+    /**
+     * Whether the id is one this class knows: the catalogue, and nothing else.
+     */
     public static function isSupported(string $id): bool
     {
         return in_array($id, self::SUPPORTED_PAYMENT_PRODUCTS, \true);
@@ -93,9 +142,49 @@ class PaymentProductId
     {
         return $this->id === $id;
     }
-    public static function cards(): PaymentProductId
+    public static function embeddedCards(): PaymentProductId
     {
-        return new self(self::CARDS);
+        return new self(self::EMBEDDED_CARDS);
+    }
+    public static function redirectionToCards(): PaymentProductId
+    {
+        return new self(self::REDIRECTION_TO_CARDS);
+    }
+    /**
+     * The two grouped card parents. Individual brands are configured separately and are never in here.
+     *
+     * @return string[]
+     */
+    public static function cardParentIds(): array
+    {
+        return [self::EMBEDDED_CARDS, self::REDIRECTION_TO_CARDS];
+    }
+    /**
+     * Whether this is one of the two grouped card parents - which is also what makes grouping true,
+     * since func-req p11 makes both "always grouped" and neither carries a merchant-settable flag.
+     */
+    public function isCardParent(): bool
+    {
+        return in_array($this->id, self::cardParentIds(), \true);
+    }
+    /**
+     * A request for one of the grouped card flows.
+     *
+     * These are ways of PRESENTING cards rather than Worldline products, so a hosted-checkout request
+     * for one restricts to the `cards` group rather than to a product id.
+     */
+    public function isGroupedCardsRequest(): bool
+    {
+        return $this->isCardParent();
+    }
+    /**
+     * Whether Worldline knows this id as a payment product. The plugin's own presentation ids - the
+     * card parents, the hosted page and Pay by Link - are not products, and
+     * sending one where a product id is expected casts to the integer 0.
+     */
+    public function hasWorldlineProductId(): bool
+    {
+        return !in_array($this->id, [self::EMBEDDED_CARDS, self::REDIRECTION_TO_CARDS, self::HOSTED_CHECKOUT, self::PAY_BY_LINK], \true);
     }
     /**
      * @return PaymentProductId[]
@@ -110,6 +199,10 @@ class PaymentProductId
     public static function hostedCheckout(): PaymentProductId
     {
         return new self(self::HOSTED_CHECKOUT);
+    }
+    public static function payByLink(): PaymentProductId
+    {
+        return new self(self::PAY_BY_LINK);
     }
     public static function alipay(): PaymentProductId
     {
@@ -215,6 +308,26 @@ class PaymentProductId
     {
         return new self(self::KLARNA);
     }
+    public static function klarnaPayLater(): PaymentProductId
+    {
+        return new self(self::KLARNA_PAY_LATER);
+    }
+    public static function klarnaFinancing(): PaymentProductId
+    {
+        return new self(self::KLARNA_FINANCING);
+    }
+    public static function klarnaBankTransfer(): PaymentProductId
+    {
+        return new self(self::KLARNA_BANK_TRANSFER);
+    }
+    public static function klarnaDirectDebit(): PaymentProductId
+    {
+        return new self(self::KLARNA_DIRECT_DEBIT);
+    }
+    public static function klarnaPayWithKlarna(): PaymentProductId
+    {
+        return new self(self::KLARNA_PAY_WITH_KLARNA);
+    }
     public static function mbWay(): PaymentProductId
     {
         return new self(self::MB_WAY);
@@ -255,6 +368,10 @@ class PaymentProductId
     {
         return new self(self::PAYPAL);
     }
+    public static function pledg(): PaymentProductId
+    {
+        return new self(self::PLEDG);
+    }
     public static function postfinancePay(): PaymentProductId
     {
         return new self(self::POSTFINANCE_PAY);
@@ -279,6 +396,14 @@ class PaymentProductId
     {
         return new self(self::WECHAT_PAY);
     }
+    public static function blik(): PaymentProductId
+    {
+        return new self(self::BLIK);
+    }
+    public static function linxo(): PaymentProductId
+    {
+        return new self(self::LINXO);
+    }
     public function getId(): string
     {
         return $this->id;
@@ -287,9 +412,22 @@ class PaymentProductId
     {
         return in_array($this->id, self::CARD_BRANDS);
     }
+    /**
+     * Products whose configuration is the credit-card one (CreditCard additional data): the grouped
+     * `cards` method and every individual card brand.
+     *
+     * Per ADR-0002 each brand is a payment method in its own right, and the functional requirements
+     * (p11-12) define an individual card's configuration as "the same configuration as the current
+     * Credit cards" - so the brands share the cards request, response and persistence shape rather
+     * than getting a parallel one.
+     */
+    public function hasCreditCardConfiguration(): bool
+    {
+        return $this->isCardParent() || $this->isCardBrand();
+    }
     public function isCardType(): bool
     {
-        return in_array($this->id, array_merge(self::CARD_BRANDS, [self::CARDS, self::INTERSOLVE, self::CPAY, self::BANCONTACT]), \true);
+        return in_array($this->id, array_merge(self::CARD_BRANDS, self::cardParentIds(), [self::INTERSOLVE, self::CPAY, self::BANCONTACT]), \true);
     }
     public function isMobileType(): bool
     {
@@ -298,6 +436,10 @@ class PaymentProductId
     public function isSeparateCaptureSupported(): bool
     {
         return in_array($this->id, self::SEPARATE_CAPTURE_SUPPORTED, \true);
+    }
+    public function isDescriptorSupported(): bool
+    {
+        return in_array($this->id, self::DESCRIPTOR_SUPPORTED, \true);
     }
     public function isRedirectType(): bool
     {

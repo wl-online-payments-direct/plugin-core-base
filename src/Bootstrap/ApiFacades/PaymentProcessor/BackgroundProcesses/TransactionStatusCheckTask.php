@@ -4,27 +4,85 @@ namespace WOP\OnlinePayments\Core\Bootstrap\ApiFacades\PaymentProcessor\Backgrou
 
 use WOP\OnlinePayments\Core\Bootstrap\ApiFacades\PaymentProcessor\CheckoutAPI\CheckoutAPI;
 use WOP\OnlinePayments\Core\Bootstrap\DataAccess\PaymentTransaction\PendingTransactionsRepository;
+use WOP\OnlinePayments\Core\Bootstrap\TaskExecution\TenantAwareTask;
 use WOP\OnlinePayments\Core\BusinessLogic\Domain\Multistore\StoreContext;
+use WOP\OnlinePayments\Core\BusinessLogic\Domain\Payment\Repositories\PaymentTransactionRepositoryInterface;
+use WOP\OnlinePayments\Core\BusinessLogic\Domain\Time\TimeProviderInterface;
+use WOP\OnlinePayments\Core\BusinessLogic\PaymentProcessor\BackgroundProcesses\FallbackCheckSchedule;
+use WOP\OnlinePayments\Core\Infrastructure\Serializer\Interfaces\Serializable;
+use WOP\OnlinePayments\Core\Infrastructure\Serializer\Serializer;
 use WOP\OnlinePayments\Core\Infrastructure\ServiceRegister;
-use WOP\OnlinePayments\Core\Infrastructure\TaskExecution\Task;
 /**
  * Class TransactionStatusCheckTask.
  *
  * @package OnlinePayments\Core\Bootstrap\ApiFacades\PaymentProcessor\BackgroundProcesses
  */
-class TransactionStatusCheckTask extends Task
+class TransactionStatusCheckTask extends TenantAwareTask
 {
-    public function execute(): void
+    public function __construct(string $tenantId = '')
     {
-        foreach ($this->getPendingTransactionsRepository()->get() as $paymentTransaction) {
+        parent::__construct($tenantId);
+    }
+    /**
+     * @inheritDoc
+     */
+    protected function doExecute(): void
+    {
+        $now = $this->getTimeProvider()->getCurrentLocalTime();
+        foreach ($this->getPendingTransactionsRepository()->get() as $entity) {
+            $transaction = $entity->getPaymentTransaction();
+            if (!FallbackCheckSchedule::isDue($transaction->getCreatedAt(), $transaction->getFallbackCheckAttempts(), $now)) {
+                continue;
+            }
+            $transaction->setFallbackCheckAttempts($transaction->getFallbackCheckAttempts() + 1);
+            StoreContext::doWithStore($entity->getStoreId(), function () use ($transaction) {
+                $this->getPaymentTransactionRepository()->save($transaction);
+            });
             StoreContext::getInstance()->setOrigin('fallback');
-            CheckoutAPI::get()->payment($paymentTransaction->getStoreId())->updateOrderStatus($paymentTransaction->getPaymentTransaction()->getPaymentId(), $paymentTransaction->getPaymentTransaction()->getReturnHmac());
+            CheckoutAPI::get()->forTenant($this->tenantId)->payment($entity->getStoreId())->updateOrderStatus($transaction->getPaymentId(), $transaction->getReturnHmac());
             $this->reportAlive();
         }
         $this->reportProgress(100);
     }
+    /**
+     * @inheritDoc
+     */
+    public function toArray(): array
+    {
+        return ['tenantId' => $this->tenantId];
+    }
+    /**
+     * @inheritDoc
+     */
+    public static function fromArray(array $array): Serializable
+    {
+        return new static($array['tenantId'] ?? '');
+    }
+    /**
+     * @inheritDoc
+     */
+    public function serialize(): string
+    {
+        return Serializer::serialize($this->toArray());
+    }
+    /**
+     * @inheritDoc
+     */
+    public function unserialize(string $serialized): void
+    {
+        $data = Serializer::unserialize($serialized);
+        $this->tenantId = $data['tenantId'] ?? '';
+    }
     protected function getPendingTransactionsRepository(): PendingTransactionsRepository
     {
         return ServiceRegister::getService(PendingTransactionsRepository::class);
+    }
+    protected function getPaymentTransactionRepository(): PaymentTransactionRepositoryInterface
+    {
+        return ServiceRegister::getService(PaymentTransactionRepositoryInterface::class);
+    }
+    protected function getTimeProvider(): TimeProviderInterface
+    {
+        return ServiceRegister::getService(TimeProviderInterface::class);
     }
 }

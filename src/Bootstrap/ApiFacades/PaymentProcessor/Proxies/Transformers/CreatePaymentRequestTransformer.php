@@ -16,14 +16,16 @@ use OnlinePayments\Sdk\Domain\SurchargeSpecificInput;
  */
 class CreatePaymentRequestTransformer
 {
-    public static function transform(PaymentRequest $input, ThreeDSSettings $cardsSettings, PaymentSettings $paymentSettings, ?Token $token = null, ?PaymentAction $paymentAction = null): CreatePaymentRequest
+    public static function transform(PaymentRequest $input, ThreeDSSettings $cardsSettings, PaymentSettings $paymentSettings, ?Token $token = null, ?PaymentAction $paymentAction = null, string $fallbackLocale = ''): CreatePaymentRequest
     {
         $cart = $input->getCartProvider()->get();
         $request = new CreatePaymentRequest();
         if (null == $token) {
             $request->setHostedTokenizationId($input->getHostedTokenizationId());
         }
-        $order = OrderTransformer::transform($cart);
+        // This is the embedded flow, so the caller has already resolved Embedded Cards' own locale.
+        // Empty means it never set one, and the store value applies.
+        $order = OrderTransformer::transform($cart, $paymentSettings->isSendShoppingCart(), '' !== $fallbackLocale ? $fallbackLocale : $paymentSettings->getFallbackLocale());
         if ($paymentSettings->isApplySurcharge()) {
             $surchargeSpecificInput = new SurchargeSpecificInput();
             $surchargeSpecificInput->setMode('on-behalf-of');

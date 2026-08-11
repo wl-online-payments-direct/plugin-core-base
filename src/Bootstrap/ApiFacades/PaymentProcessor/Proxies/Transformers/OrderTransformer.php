@@ -29,7 +29,7 @@ use OnlinePayments\Sdk\Domain\ShoppingCart;
  */
 class OrderTransformer
 {
-    public static function transform(Cart $cart): Order
+    public static function transform(Cart $cart, bool $sendShoppingCart = \true, string $fallbackLocale = 'en_GB'): Order
     {
         $order = new Order();
         $amountOfMoney = new AmountOfMoney();
@@ -38,6 +38,9 @@ class OrderTransformer
         $order->setAmountOfMoney($amountOfMoney);
         $reference = new OrderReferences();
         $reference->setMerchantReference($cart->getMerchantReference());
+        if ($cart->getDescriptor() !== null && $cart->getDescriptor() !== '') {
+            $reference->setDescriptor($cart->getDescriptor());
+        }
         $order->setReferences($reference);
         if ($cart->getDiscount()) {
             $discount = new Discount();
@@ -52,8 +55,8 @@ class OrderTransformer
             $shipping->setShippingCostTax($cart->getShipping()->getCost()->getTaxAmount()->getValue());
             $order->setShipping($shipping);
         }
-        $order->setCustomer(self::transformCustomer($cart->getCustomer()));
-        if (!$cart->getLineItems()->isEmpty()) {
+        $order->setCustomer(self::transformCustomer($cart->getCustomer(), $fallbackLocale));
+        if ($sendShoppingCart && !$cart->getLineItems()->isEmpty()) {
             $order->setShoppingCart(self::transformLineItems($cart->getLineItems()));
         }
         return $order;
@@ -78,13 +81,13 @@ class OrderTransformer
         }
         return $address;
     }
-    private static function transformCustomer(Customer $cartCustomer): SdkCustomer
+    private static function transformCustomer(Customer $cartCustomer, string $fallbackLocale = 'en_GB'): SdkCustomer
     {
         $customer = new SdkCustomer();
         $contactDetails = new ContactDetails();
         $contactDetails->setEmailAddress($cartCustomer->getContactDetails()->getEmail());
         $customer->setContactDetails($contactDetails);
-        $customer->setLocale($cartCustomer->getFormattedLocale());
+        $customer->setLocale($cartCustomer->getFormattedLocale($fallbackLocale));
         $customer->setMerchantCustomerId($cartCustomer->getMerchantCustomerId());
         $personalInfo = $cartCustomer->getBillingAddress()->getPersonalInformation();
         if ($personalInfo) {

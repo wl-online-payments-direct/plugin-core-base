@@ -14,18 +14,21 @@ class GeneralSettingsResponse
     protected PaymentSettings $paymentSettings;
     protected LogSettings $logSettings;
     protected PayByLinkSettings $payByLinkSettings;
+    protected WebhookSettings $webhookSettings;
     /**
      * @param ConnectionDetails $connectionDetails
      * @param PaymentSettings $paymentSettings
      * @param LogSettings $logSettings
      * @param PayByLinkSettings $payByLinkSettings
+     * @param WebhookSettings $webhookSettings
      */
-    public function __construct(ConnectionDetails $connectionDetails, PaymentSettings $paymentSettings, LogSettings $logSettings, PayByLinkSettings $payByLinkSettings)
+    public function __construct(ConnectionDetails $connectionDetails, PaymentSettings $paymentSettings, LogSettings $logSettings, PayByLinkSettings $payByLinkSettings, WebhookSettings $webhookSettings)
     {
         $this->connectionDetails = $connectionDetails;
         $this->paymentSettings = $paymentSettings;
         $this->logSettings = $logSettings;
         $this->payByLinkSettings = $payByLinkSettings;
+        $this->webhookSettings = $webhookSettings;
     }
     /**
      * @return ConnectionDetails
@@ -54,5 +57,12 @@ class GeneralSettingsResponse
     public function getPayByLinkSettings(): PayByLinkSettings
     {
         return $this->payByLinkSettings;
+    }
+    /**
+     * @return WebhookSettings
+     */
+    public function getWebhookSettings(): WebhookSettings
+    {
+        return $this->webhookSettings;
     }
 }

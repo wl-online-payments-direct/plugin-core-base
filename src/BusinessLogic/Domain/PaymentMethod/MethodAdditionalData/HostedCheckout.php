@@ -8,7 +8,7 @@ use WOP\OnlinePayments\Core\BusinessLogic\Domain\PaymentMethod\MethodAdditionalD
  *
  * @package OnlinePayments\Core\BusinessLogic\Domain\PaymentMethod\MethodAdditionalData
  */
-class HostedCheckout implements PaymentMethodAdditionalData
+class HostedCheckout implements CarriesThreeDSSettings
 {
     protected string $logo;
     protected bool $enableGroupCards;
@@ -39,5 +39,13 @@ class HostedCheckout implements PaymentMethodAdditionalData
     public function getThreeDSSettings(): ThreeDSSettings
     {
         return $this->threeDSSettings;
+    }
+    /**
+     * Always the merchant's own: this shape has no inherit state, because the method carries a 3DS
+     * block only once it has been configured.
+     */
+    public function hasThreeDSSettings(): bool
+    {
+        return null !== $this->getThreeDSSettings();
     }
 }

@@ -56,7 +56,30 @@ class PaymentDetailsResponseTransformer
         if (!$id) {
             return '';
         }
-        return array_key_exists($id, PaymentMethodDefaultConfigs::PAYMENT_METHOD_CONFIGS) ? PaymentMethodDefaultConfigs::PAYMENT_METHOD_CONFIGS[$id]['name']['translation'] : $paymentOutput->getPaymentMethod();
+        $label = array_key_exists($id, PaymentMethodDefaultConfigs::PAYMENT_METHOD_CONFIGS) ? PaymentMethodDefaultConfigs::PAYMENT_METHOD_CONFIGS[$id]['name']['translation'] : $paymentOutput->getPaymentMethod();
+        if ($mobileOutput && $mobileOutput->getNetwork()) {
+            $brand = self::walletBrandLabel((string) $mobileOutput->getNetwork());
+            if ($brand !== '' && stripos($label, $brand) === \false) {
+                $label .= ' (' . $brand . ')';
+            }
+        }
+        return $label;
+    }
+    /**
+     * Pretty display brand for a Worldline card network/scheme ("VISA" => "Visa").
+     *
+     * @param string $network
+     *
+     * @return string
+     */
+    private static function walletBrandLabel(string $network): string
+    {
+        $network = trim($network);
+        if ($network === '') {
+            return '';
+        }
+        $brands = ['VISA' => 'Visa', 'MASTERCARD' => 'Mastercard', 'AMEX' => 'American Express', 'AMERICAN EXPRESS' => 'American Express', 'MAESTRO' => 'Maestro', 'DISCOVER' => 'Discover', 'JCB' => 'JCB', 'DINERS' => 'Diners Club', 'DINERS CLUB' => 'Diners Club', 'CARTE BANCAIRE' => 'Cartes Bancaires', 'BANCONTACT' => 'Bancontact'];
+        return $brands[strtoupper($network)] ?? ucwords(strtolower($network));
     }
     /**
      * @param PaymentOutput $paymentOutput
@@ -80,11 +103,17 @@ class PaymentDetailsResponseTransformer
         $fraudResult = $output && $output->getFraudResults() ? $output->getFraudResults()->getFraudServiceResult() : null;
         $liability = null;
         $exemptionType = null;
+        $bin = null;
+        $cardNumber = null;
         if ($output instanceof CardPaymentMethodSpecificOutput && $output->getThreeDSecureResults()) {
             $liability = $output->getThreeDSecureResults()->getLiability();
             $exemptionType = $output->getThreeDSecureResults()->getAppliedExemption();
         }
-        return new PaymentSpecificOutput($output ? (string) $output->getPaymentProductId() : '', $fraudResult, $liability, $exemptionType, self::getSurchargeAmount($paymentOutput));
+        if ($output instanceof CardPaymentMethodSpecificOutput && $output->getCard()) {
+            $bin = $output->getCard()->getBin();
+            $cardNumber = $output->getCard()->getCardNumber();
+        }
+        return new PaymentSpecificOutput($output ? (string) $output->getPaymentProductId() : '', $fraudResult, $liability, $exemptionType, self::getSurchargeAmount($paymentOutput), $bin, $cardNumber);
     }
     private static function getSurchargeAmount(PaymentOutput $paymentOutput): ?Amount
     {

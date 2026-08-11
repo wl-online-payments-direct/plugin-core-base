@@ -49,7 +49,11 @@ class CreatePaymentLinkRequestTransformer
             $cardSpecificInputForHostedCheckout->setGroupCards($config->getAdditionalData()->isEnableGroupCards());
             $hostedCheckoutSpecificInput->setCardPaymentMethodSpecificInput($cardSpecificInputForHostedCheckout);
         }
-        $request->setOrder(OrderTransformer::transform($cart));
+        // Pay by Link's own locale if it set one. The link IS the Pay by Link method, so there is no
+        // ambiguity about which method's value applies here.
+        $payByLinkMethod = $paymentMethodCollection->get(PaymentProductId::payByLink());
+        $fallbackLocale = $payByLinkMethod ? $payByLinkMethod->resolveFallbackLocale($paymentSettings->getFallbackLocale()) : $paymentSettings->getFallbackLocale();
+        $request->setOrder(OrderTransformer::transform($cart, $paymentSettings->isSendShoppingCart(), $fallbackLocale));
         $request->setHostedCheckoutSpecificInput($hostedCheckoutSpecificInput);
         $cardPaymentMethodSpecificInput = CardPaymentMethodSpecificInputTransformer::transform($cart, $input->getReturnUrl(), $cardsSettings, $paymentSettings, $paymentMethodCollection);
         $request->setCardPaymentMethodSpecificInput($cardPaymentMethodSpecificInput);

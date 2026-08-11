@@ -3,6 +3,7 @@
 namespace WOP\OnlinePayments\Core\BusinessLogic\Domain\GeneralSettings;
 
 use WOP\OnlinePayments\Core\BusinessLogic\Domain\GeneralSettings\Exceptions\InvalidPaymentAttemptsNumberException;
+use WOP\OnlinePayments\Core\BusinessLogic\Domain\OrderStatusMapping\Models\OrderStatusMapping;
 /**
  * Class PaymentSettings
  *
@@ -14,7 +15,6 @@ class PaymentSettings
     protected AutomaticCapture $automaticCapture;
     protected PaymentAttemptsNumber $paymentAttemptsNumber;
     protected bool $applySurcharge;
-    protected string $template;
     /**
      * Status 9.
      *
@@ -55,6 +55,11 @@ class PaymentSettings
      * @var string
      */
     protected string $paymentPartiallyRefundedStatus;
+    protected bool $sendShoppingCart;
+    protected bool $skipConfirmationPage;
+    protected SessionTimeout $sessionTimeout;
+    protected string $fallbackLocale;
+    protected DefaultMethodSettings $defaultMethodSettings;
     /**
      * @param ?PaymentAction $paymentAction
      * @param ?AutomaticCapture $automaticCapture
@@ -66,12 +71,19 @@ class PaymentSettings
      * @param string $paymentAuthorizedStatus
      * @param string $paymentCancelledStatus
      * @param string $paymentRefundedStatus
-     * @param string $template
      * @param string $paymentPartiallyRefundedStatus
+     * @param bool $sendShoppingCart
+     * @param bool $skipConfirmationPage Bypasses the gateway's own success screen, redirecting the
+     *  customer straight back to the store.
+     * @param ?SessionTimeout $sessionTimeout How long the hosted payment page session should last.
+     * @param string $fallbackLocale Locale used if the store's language is not supported by the gateway.
+     * @param ?DefaultMethodSettings $defaultMethodSettings The store-level baseline every payment
+     *  method resolves through unless it overrides it (ADR-0003). Deliberately ONE parameter: this
+     *  constructor is positional and `php >= 7.4` has no named arguments.
      *
      * @throws InvalidPaymentAttemptsNumberException
      */
-    public function __construct(?PaymentAction $paymentAction = null, ?AutomaticCapture $automaticCapture = null, ?PaymentAttemptsNumber $paymentAttemptsNumber = null, bool $applySurcharge = \false, string $paymentCapturedStatus = '', string $paymentErrorStatus = '', string $paymentPendingStatus = '', string $paymentAuthorizedStatus = '', string $paymentCancelledStatus = '', string $paymentRefundedStatus = '', string $template = '', string $paymentPartiallyRefundedStatus = '')
+    public function __construct(?PaymentAction $paymentAction = null, ?AutomaticCapture $automaticCapture = null, ?PaymentAttemptsNumber $paymentAttemptsNumber = null, bool $applySurcharge = \false, string $paymentCapturedStatus = '', string $paymentErrorStatus = '', string $paymentPendingStatus = '', string $paymentAuthorizedStatus = '', string $paymentCancelledStatus = '', string $paymentRefundedStatus = '', string $paymentPartiallyRefundedStatus = '', bool $sendShoppingCart = \true, bool $skipConfirmationPage = \true, ?SessionTimeout $sessionTimeout = null, string $fallbackLocale = 'en_GB', ?DefaultMethodSettings $defaultMethodSettings = null)
     {
         $this->paymentAction = $paymentAction ?? PaymentAction::authorizeCapture();
         $this->automaticCapture = $automaticCapture ?? AutomaticCapture::never();
@@ -83,8 +95,49 @@ class PaymentSettings
         $this->paymentAuthorizedStatus = $paymentAuthorizedStatus;
         $this->paymentCancelledStatus = $paymentCancelledStatus;
         $this->paymentRefundedStatus = $paymentRefundedStatus;
-        $this->template = $template;
         $this->paymentPartiallyRefundedStatus = $paymentPartiallyRefundedStatus;
+        $this->sendShoppingCart = $sendShoppingCart;
+        $this->skipConfirmationPage = $skipConfirmationPage;
+        $this->sessionTimeout = $sessionTimeout ?? SessionTimeout::create(180);
+        $this->fallbackLocale = $fallbackLocale;
+        $this->defaultMethodSettings = $defaultMethodSettings ?? new DefaultMethodSettings();
+    }
+    /**
+     * Replaces the Global > Jobs slice, leaving every other setting exactly as it is.
+     *
+     * The savers use these rather than re-enumerating the constructor: a positional re-enumeration
+     * that omitted a parameter silently reset that field to its constructor default, so an unrelated
+     * page's save could revert the store-wide 3DS baseline with no error.
+     *
+     * @param AutomaticCapture $automaticCapture
+     *
+     * @return self
+     */
+    public function withAutomaticCapture(AutomaticCapture $automaticCapture): self
+    {
+        $copy = clone $this;
+        $copy->automaticCapture = $automaticCapture;
+        return $copy;
+    }
+    /**
+     * Replaces the Global > Danger Zone slice - the seven order-status mappings - leaving every other
+     * setting exactly as it is. See `withAutomaticCapture()`.
+     *
+     * @param OrderStatusMapping $mapping
+     *
+     * @return self
+     */
+    public function withOrderStatusMapping(OrderStatusMapping $mapping): self
+    {
+        $copy = clone $this;
+        $copy->paymentCapturedStatus = $mapping->getPaymentCapturedStatus();
+        $copy->paymentErrorStatus = $mapping->getPaymentErrorStatus();
+        $copy->paymentPendingStatus = $mapping->getPaymentPendingStatus();
+        $copy->paymentAuthorizedStatus = $mapping->getPaymentAuthorizedStatus();
+        $copy->paymentCancelledStatus = $mapping->getPaymentCancelledStatus();
+        $copy->paymentRefundedStatus = $mapping->getPaymentRefundedStatus();
+        $copy->paymentPartiallyRefundedStatus = $mapping->getPaymentPartiallyRefundedStatus();
+        return $copy;
     }
     /**
      * @return PaymentAction
@@ -159,15 +212,28 @@ class PaymentSettings
     /**
      * @return string
      */
-    public function getTemplate(): string
-    {
-        return $this->template;
-    }
-    /**
-     * @return string
-     */
     public function getPaymentPartiallyRefundedStatus(): string
     {
         return $this->paymentPartiallyRefundedStatus;
+    }
+    public function isSendShoppingCart(): bool
+    {
+        return $this->sendShoppingCart;
+    }
+    public function isSkipConfirmationPage(): bool
+    {
+        return $this->skipConfirmationPage;
+    }
+    public function getSessionTimeout(): SessionTimeout
+    {
+        return $this->sessionTimeout;
+    }
+    public function getFallbackLocale(): string
+    {
+        return $this->fallbackLocale;
+    }
+    public function getDefaultMethodSettings(): DefaultMethodSettings
+    {
+        return $this->defaultMethodSettings;
     }
 }

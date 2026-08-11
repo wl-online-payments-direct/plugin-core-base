@@ -18,20 +18,27 @@ class PaymentMethodResponse
      */
     protected array $integrationTypes;
     protected bool $enabled;
+    protected ?string $flowType;
     /**
      * @param string $paymentProductId
      * @param TranslationCollection $name
      * @param string $paymentGroup
      * @param string[] $integrationTypes
      * @param bool $enabled
+     * @param string|null $flowType The flow the merchant CONFIGURED for this method, where it is
+     *     merchant-settable at all. Null for every method that has no such setting. Distinct from
+     *     $integrationTypes, which is the catalogue's list of flows the product SUPPORTS - a card
+     *     brand supports several and is configured as exactly one, and the admin list labels it by
+     *     the one it is configured as.
      */
-    public function __construct(string $paymentProductId, TranslationCollection $name, string $paymentGroup, array $integrationTypes, bool $enabled)
+    public function __construct(string $paymentProductId, TranslationCollection $name, string $paymentGroup, array $integrationTypes, bool $enabled, ?string $flowType = null)
     {
         $this->paymentProductId = $paymentProductId;
         $this->name = $name;
         $this->paymentGroup = $paymentGroup;
         $this->integrationTypes = $integrationTypes;
         $this->enabled = $enabled;
+        $this->flowType = $flowType;
     }
     public function getPaymentProductId(): string
     {
@@ -52,5 +59,9 @@ class PaymentMethodResponse
     public function isEnabled(): bool
     {
         return $this->enabled;
+    }
+    public function getFlowType(): ?string
+    {
+        return $this->flowType;
     }
 }

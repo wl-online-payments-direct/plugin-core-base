@@ -4,6 +4,7 @@ namespace WOP\OnlinePayments\Core\Bootstrap\ApiFacades\PaymentProcessor\Proxies;
 
 use WOP\OnlinePayments\Core\Bootstrap\ApiFacades\PaymentProcessor\Proxies\Transformers\CreateHostedCheckoutRequestTransformer;
 use WOP\OnlinePayments\Core\Bootstrap\ApiFacades\PaymentProcessor\Proxies\Transformers\CreateHostedCheckoutResponseTransformer;
+use WOP\OnlinePayments\Core\Bootstrap\ApiFacades\PaymentProcessor\Proxies\Transformers\FeedbacksTransformer;
 use WOP\OnlinePayments\Core\Bootstrap\Sdk\MerchantClientFactory;
 use WOP\OnlinePayments\Core\BusinessLogic\Domain\GeneralSettings\PaymentSettings;
 use WOP\OnlinePayments\Core\BusinessLogic\Domain\HostedCheckout\HostedCheckoutSessionRequest;
@@ -28,6 +29,11 @@ class HostedCheckoutProxy implements HostedCheckoutProxyInterface
     public function createSession(HostedCheckoutSessionRequest $request, ThreeDSSettings $cardsSettings, PaymentSettings $paymentSettings, PaymentMethodCollection $paymentMethodCollection, array $supportedPaymentMethods, ?Token $token = null): PaymentResponse
     {
         ContextLogProvider::getInstance()->setCurrentOrder($request->getCartProvider()->get()->getMerchantReference());
-        return CreateHostedCheckoutResponseTransformer::transform($this->clientFactory->get()->hostedCheckout()->createHostedCheckout(CreateHostedCheckoutRequestTransformer::transform($request, $cardsSettings, $paymentSettings, $paymentMethodCollection, $supportedPaymentMethods, $token)));
+        $hostedCheckoutRequest = CreateHostedCheckoutRequestTransformer::transform($request, $cardsSettings, $paymentSettings, $paymentMethodCollection, $supportedPaymentMethods, $token);
+        $feedbacks = FeedbacksTransformer::transform();
+        if ($feedbacks !== null) {
+            $hostedCheckoutRequest->setFeedbacks($feedbacks);
+        }
+        return CreateHostedCheckoutResponseTransformer::transform($this->clientFactory->get()->hostedCheckout()->createHostedCheckout($hostedCheckoutRequest));
     }
 }

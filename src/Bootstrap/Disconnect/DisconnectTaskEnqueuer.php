@@ -8,6 +8,7 @@ use WOP\OnlinePayments\Core\Bootstrap\Disconnect\Tasks\DisconnectTask;
 use WOP\OnlinePayments\Core\BusinessLogic\AdminConfig\Services\Disconnect\Repositories\DisconnectRepositoryInterface;
 use WOP\OnlinePayments\Core\BusinessLogic\Domain\Disconnect\DisconnectTaskEnqueuerInterface;
 use WOP\OnlinePayments\Core\BusinessLogic\Domain\Multistore\StoreContext;
+use WOP\OnlinePayments\Core\BusinessLogic\Domain\Multistore\TenantContext;
 use WOP\OnlinePayments\Core\Infrastructure\TaskExecution\Exceptions\QueueStorageUnavailableException;
 use WOP\OnlinePayments\Core\Infrastructure\TaskExecution\QueueService;
 /**
@@ -38,6 +39,6 @@ class DisconnectTaskEnqueuer implements DisconnectTaskEnqueuerInterface
     {
         $disconnectTime = new DateTime();
         $this->disconnectRepository->setDisconnectTime($disconnectTime);
-        $this->queueService->enqueue('disconnect-integration', new DisconnectTask(StoreContext::getInstance()->getStoreId(), $disconnectTime, $mode));
+        $this->queueService->enqueue('disconnect-integration', new DisconnectTask(TenantContext::getInstance()->getTenantId(), StoreContext::getInstance()->getStoreId(), $disconnectTime, $mode));
     }
 }

@@ -3,6 +3,7 @@
 namespace WOP\OnlinePayments\Core\Bootstrap;
 
 use WOP\OnlinePayments\Core\Bootstrap\ApiFacades\AdminConfig\Proxies\ConnectionProxy;
+use WOP\OnlinePayments\Core\Bootstrap\ApiFacades\AdminConfig\Proxies\HealthCheckProxy;
 use WOP\OnlinePayments\Core\Bootstrap\ApiFacades\Order\Proxies\CancelProxy;
 use WOP\OnlinePayments\Core\Bootstrap\ApiFacades\Order\Proxies\CaptureProxy;
 use WOP\OnlinePayments\Core\Bootstrap\ApiFacades\Order\Proxies\RefundProxy;
@@ -23,6 +24,8 @@ use WOP\OnlinePayments\Core\Bootstrap\DataAccess\GeneralSettings\LogSettingsEnti
 use WOP\OnlinePayments\Core\Bootstrap\DataAccess\GeneralSettings\LogSettingsRepository;
 use WOP\OnlinePayments\Core\Bootstrap\DataAccess\GeneralSettings\PayByLinkSettingsEntity;
 use WOP\OnlinePayments\Core\Bootstrap\DataAccess\GeneralSettings\PayByLinkSettingsRepository;
+use WOP\OnlinePayments\Core\Bootstrap\DataAccess\GeneralSettings\WebhookSettingsEntity;
+use WOP\OnlinePayments\Core\Bootstrap\DataAccess\GeneralSettings\WebhookSettingsRepository;
 use WOP\OnlinePayments\Core\Bootstrap\DataAccess\GeneralSettings\PaymentSettingsConfigEntity;
 use WOP\OnlinePayments\Core\Bootstrap\DataAccess\GeneralSettings\PaymentSettingsRepository;
 use WOP\OnlinePayments\Core\Bootstrap\DataAccess\Maintenance\TaskCleanupRepository;
@@ -45,8 +48,10 @@ use WOP\OnlinePayments\Core\Bootstrap\DataAccess\Tokens\TokenEntity;
 use WOP\OnlinePayments\Core\Bootstrap\DataAccess\Tokens\TokensRepository;
 use WOP\OnlinePayments\Core\Bootstrap\Disconnect\DisconnectTaskEnqueuer;
 use WOP\OnlinePayments\Core\Bootstrap\LogCleanup\LogCleanupTaskService;
+use WOP\OnlinePayments\Core\Bootstrap\Multistore\DefaultTenantRegistry;
 use WOP\OnlinePayments\Core\Bootstrap\Maintenance\TaskCleanupListener;
 use WOP\OnlinePayments\Core\Bootstrap\Sdk\MerchantClientFactory;
+use WOP\OnlinePayments\Core\Bootstrap\Sdk\SdkApiFailureClassifier;
 use WOP\OnlinePayments\Core\Bootstrap\Sdk\WebhookTransformer;
 use WOP\OnlinePayments\Core\Bootstrap\Time\TimeProvider;
 use WOP\OnlinePayments\Core\Branding\Brand\ActiveBrandProvider;
@@ -62,12 +67,19 @@ use WOP\OnlinePayments\Core\BusinessLogic\AdminConfig\ApiFacades\StoreAPI\Contro
 use WOP\OnlinePayments\Core\BusinessLogic\AdminConfig\ApiFacades\VersionsAPI\Controller\VersionController;
 use WOP\OnlinePayments\Core\BusinessLogic\AdminConfig\Services\Connection\ConnectionService;
 use WOP\OnlinePayments\Core\BusinessLogic\AdminConfig\Services\Connection\Proxies\ConnectionProxyInterface;
+use WOP\OnlinePayments\Core\BusinessLogic\AdminConfig\Services\HealthCheck\ApiFailureClassifierInterface;
+use WOP\OnlinePayments\Core\BusinessLogic\AdminConfig\Services\HealthCheck\HealthCheckService;
+use WOP\OnlinePayments\Core\BusinessLogic\AdminConfig\Services\Webhook\TestWebhookService;
+use WOP\OnlinePayments\Core\BusinessLogic\AdminConfig\Services\HealthCheck\Proxies\HealthCheckProxyInterface;
+use WOP\OnlinePayments\Core\Infrastructure\Configuration\Configuration;
 use WOP\OnlinePayments\Core\BusinessLogic\AdminConfig\Services\Disconnect\DisconnectService;
 use WOP\OnlinePayments\Core\BusinessLogic\AdminConfig\Services\Disconnect\Repositories\DisconnectRepositoryInterface;
 use WOP\OnlinePayments\Core\BusinessLogic\AdminConfig\Services\GeneralSettings\GeneralSettingsService;
 use WOP\OnlinePayments\Core\BusinessLogic\AdminConfig\Services\GeneralSettings\Repositories\LogSettingsRepositoryInterface;
 use WOP\OnlinePayments\Core\BusinessLogic\AdminConfig\Services\GeneralSettings\Repositories\PayByLinkSettingsRepositoryInterface;
 use WOP\OnlinePayments\Core\BusinessLogic\AdminConfig\Services\GeneralSettings\Repositories\PaymentSettingsRepositoryInterface;
+use WOP\OnlinePayments\Core\BusinessLogic\Domain\Payment\Repositories\PaymentSettingsRepositoryInterface as DomainPaymentSettingsRepositoryInterface;
+use WOP\OnlinePayments\Core\BusinessLogic\AdminConfig\Services\GeneralSettings\Repositories\WebhookSettingsRepositoryInterface;
 use WOP\OnlinePayments\Core\BusinessLogic\AdminConfig\Services\Monitoring\MonitoringLogsService;
 use WOP\OnlinePayments\Core\BusinessLogic\AdminConfig\Services\Monitoring\WebhookLogsService;
 use WOP\OnlinePayments\Core\BusinessLogic\AdminConfig\Services\Payment\PaymentService;
@@ -76,6 +88,7 @@ use WOP\OnlinePayments\Core\BusinessLogic\AdminConfig\Services\ProductTypes\Repo
 use WOP\OnlinePayments\Core\BusinessLogic\Domain\Connection\ActiveConnectionProvider;
 use WOP\OnlinePayments\Core\BusinessLogic\Domain\Connection\Repositories\ConnectionConfigRepositoryInterface;
 use WOP\OnlinePayments\Core\BusinessLogic\Domain\Disconnect\DisconnectTaskEnqueuerInterface;
+use WOP\OnlinePayments\Core\BusinessLogic\Domain\GeneralSettings\PaymentSettingsService;
 use WOP\OnlinePayments\Core\BusinessLogic\Domain\HostedTokenization\Repositories\TokensRepositoryInterface;
 use WOP\OnlinePayments\Core\BusinessLogic\Domain\Integration\Encryption\Encryptor;
 use WOP\OnlinePayments\Core\BusinessLogic\Domain\Integration\Language\LanguageService;
@@ -90,6 +103,8 @@ use WOP\OnlinePayments\Core\BusinessLogic\Domain\LogCleanup\LogCleanupTaskServic
 use WOP\OnlinePayments\Core\BusinessLogic\Domain\Monitoring\Repositories\MonitoringLogRepositoryInterface;
 use WOP\OnlinePayments\Core\BusinessLogic\Domain\Monitoring\Repositories\WebhookLogRepositoryInterface;
 use WOP\OnlinePayments\Core\BusinessLogic\Domain\Multistore\StoreContext;
+use WOP\OnlinePayments\Core\BusinessLogic\Domain\Multistore\TenantContext;
+use WOP\OnlinePayments\Core\BusinessLogic\Domain\Multistore\TenantRegistryInterface;
 use WOP\OnlinePayments\Core\BusinessLogic\Domain\OrderStatusMapping\StatusMappingService;
 use WOP\OnlinePayments\Core\BusinessLogic\Domain\Payment\Repositories\PaymentTransactionRepositoryInterface;
 use WOP\OnlinePayments\Core\BusinessLogic\Domain\PaymentLinks\Repositories\PaymentLinkRepositoryInterface;
@@ -98,6 +113,7 @@ use WOP\OnlinePayments\Core\BusinessLogic\Domain\PaymentMethod\Repositories\Paym
 use WOP\OnlinePayments\Core\BusinessLogic\Domain\PaymentMethod\ThreeDSSettingsService;
 use WOP\OnlinePayments\Core\BusinessLogic\Domain\Stores\StoreService;
 use WOP\OnlinePayments\Core\BusinessLogic\Domain\Time\TimeProviderInterface;
+use WOP\OnlinePayments\Core\BusinessLogic\Domain\Webhook\WebhookMode;
 use WOP\OnlinePayments\Core\BusinessLogic\Domain\Webhook\Transformers\WebhookTransformerInterface;
 use WOP\OnlinePayments\Core\BusinessLogic\Order\ApiFacades\CancelAPI\Controller\CancelController;
 use WOP\OnlinePayments\Core\BusinessLogic\Order\ApiFacades\CaptureAPI\Controller\CaptureController;
@@ -150,8 +166,18 @@ use WOP\OnlinePayments\Core\Infrastructure\Utility\TimeProvider as Infrastructur
  */
 class BootstrapComponent extends BaseBootstrapComponent
 {
-    public static function bootstrap(callable $activeBrandResolver, string $brandConfigFile): void
+    /**
+     * @param callable $activeBrandResolver
+     * @param string $brandConfigFile
+     * @param string $webhookMode One of the WebhookMode constants. Integrations that let Worldline
+     *  discover the webhook URL from the payment request itself pass WebhookMode::AUTOMATIC. The default
+     *  expects the merchant to register the webhook URL in the Worldline back office.
+     *
+     * @return void
+     */
+    public static function bootstrap(callable $activeBrandResolver, string $brandConfigFile, string $webhookMode = WebhookMode::MANUAL): void
     {
+        WebhookMode::set($webhookMode);
         static::init();
         ServiceRegister::registerService(ActiveBrandProviderInterface::class, new SingleInstance(static function () use ($brandConfigFile, $activeBrandResolver) {
             return new ActiveBrandProvider($activeBrandResolver, $brandConfigFile);
@@ -178,10 +204,10 @@ class BootstrapComponent extends BaseBootstrapComponent
             return new PaymentMethodService(ServiceRegister::getService(PaymentMethodConfigRepositoryInterface::class), ServiceRegister::getService(ProductTypeRepositoryInterface::class), ServiceRegister::getService(PaymentMethodProxyInterface::class), ServiceRegister::getService(SurchargeProxyInterface::class));
         }));
         ServiceRegister::registerService(HostedTokenizationService::class, new SingleInstance(static function () {
-            return new HostedTokenizationService(ServiceRegister::getService(HostedTokenizationProxyInterface::class), ServiceRegister::getService(PaymentsProxyInterface::class), ServiceRegister::getService(PaymentTransactionRepositoryInterface::class), ServiceRegister::getService(ThreeDSSettingsService::class), ServiceRegister::getService(PaymentSettingsRepositoryInterface::class), ServiceRegister::getService(TokensRepositoryInterface::class), ServiceRegister::getService(WaitPaymentOutcomeProcess::class), ServiceRegister::getService(LogoUrlService::class), ServiceRegister::getService(ActiveBrandProviderInterface::class), ServiceRegister::getService(PaymentMethodService::class));
+            return new HostedTokenizationService(ServiceRegister::getService(HostedTokenizationProxyInterface::class), ServiceRegister::getService(PaymentsProxyInterface::class), ServiceRegister::getService(PaymentTransactionRepositoryInterface::class), ServiceRegister::getService(ThreeDSSettingsService::class), ServiceRegister::getService(PaymentSettingsService::class), ServiceRegister::getService(TokensRepositoryInterface::class), ServiceRegister::getService(WaitPaymentOutcomeProcess::class), ServiceRegister::getService(LogoUrlService::class), ServiceRegister::getService(ActiveBrandProviderInterface::class), ServiceRegister::getService(PaymentMethodService::class));
         }));
         ServiceRegister::registerService(HostedCheckoutService::class, new SingleInstance(static function () {
-            return new HostedCheckoutService(ServiceRegister::getService(HostedCheckoutProxyInterface::class), ServiceRegister::getService(PaymentTransactionRepositoryInterface::class), ServiceRegister::getService(TokensRepositoryInterface::class), ServiceRegister::getService(ThreeDSSettingsService::class), ServiceRegister::getService(PaymentSettingsRepositoryInterface::class), ServiceRegister::getService(ProductTypeRepositoryInterface::class), ServiceRegister::getService(PaymentMethodService::class), ServiceRegister::getService(PaymentProductService::class));
+            return new HostedCheckoutService(ServiceRegister::getService(HostedCheckoutProxyInterface::class), ServiceRegister::getService(PaymentTransactionRepositoryInterface::class), ServiceRegister::getService(TokensRepositoryInterface::class), ServiceRegister::getService(ThreeDSSettingsService::class), ServiceRegister::getService(PaymentSettingsService::class), ServiceRegister::getService(ProductTypeRepositoryInterface::class), ServiceRegister::getService(PaymentMethodService::class), ServiceRegister::getService(PaymentProductService::class));
         }));
         ServiceRegister::registerService(WaitPaymentOutcomeProcess::class, new SingleInstance(static function () {
             return new WaitPaymentOutcomeProcess(ServiceRegister::getService(PaymentTransactionRepositoryInterface::class), ServiceRegister::getService(StatusUpdateService::class), ServiceRegister::getService(TimeProviderInterface::class), ServiceRegister::getService(WaitPaymentOutcomeProcessStarterInterface::class), ServiceRegister::getService(PaymentLinkRepositoryInterface::class), ServiceRegister::getService(PaymentLinkTransactionService::class));
@@ -196,16 +222,22 @@ class BootstrapComponent extends BaseBootstrapComponent
             return new MerchantClientFactory(ServiceRegister::getService(ActiveConnectionProvider::class), ServiceRegister::getService(ActiveBrandProviderInterface::class), ServiceRegister::getService(MetadataProviderInterface::class));
         }));
         ServiceRegister::registerService(ConnectionService::class, function () {
-            return new ConnectionService(ServiceRegister::getService(ConnectionConfigRepositoryInterface::class), ServiceRegister::getService(ConnectionProxyInterface::class));
+            return new ConnectionService(ServiceRegister::getService(ConnectionConfigRepositoryInterface::class), ServiceRegister::getService(ConnectionProxyInterface::class), ServiceRegister::getService(HealthCheckService::class), ServiceRegister::getService(Configuration::CLASS_NAME));
+        });
+        ServiceRegister::registerService(HealthCheckService::class, function () {
+            return new HealthCheckService(ServiceRegister::getService(ConnectionProxyInterface::class), ServiceRegister::getService(HealthCheckProxyInterface::class), ServiceRegister::getService(ApiFailureClassifierInterface::class), ServiceRegister::getService(TimeProviderInterface::class));
+        });
+        ServiceRegister::registerService(TestWebhookService::class, function () {
+            return new TestWebhookService(ServiceRegister::getService(ConnectionConfigRepositoryInterface::class), ServiceRegister::getService(GeneralSettingsService::class), ServiceRegister::getService(HealthCheckService::class));
         });
         ServiceRegister::registerService(PaymentService::class, function () {
-            return new PaymentService(ServiceRegister::getService(PaymentConfigRepositoryInterface::class), ServiceRegister::getService(LogoUrlService::class), ServiceRegister::getService(ActiveBrandProviderInterface::class), ServiceRegister::getService(PaymentProductService::class), ServiceRegister::getService(GeneralSettingsService::class), ServiceRegister::getService(LanguageService::class));
+            return new PaymentService(ServiceRegister::getService(PaymentConfigRepositoryInterface::class), ServiceRegister::getService(LogoUrlService::class), ServiceRegister::getService(ActiveBrandProviderInterface::class), ServiceRegister::getService(PaymentProductService::class), ServiceRegister::getService(GeneralSettingsService::class), ServiceRegister::getService(LanguageService::class), ServiceRegister::getService(ThreeDSSettingsService::class));
         });
         ServiceRegister::registerService(StoreService::class, function () {
             return new StoreService(ServiceRegister::getService(IntegrationStoreService::class), ServiceRegister::getService(ConnectionConfigRepositoryInterface::class));
         });
         ServiceRegister::registerService(GeneralSettingsService::class, function () {
-            return new GeneralSettingsService(ServiceRegister::getService(ConnectionConfigRepositoryInterface::class), ServiceRegister::getService(LogSettingsRepositoryInterface::class), ServiceRegister::getService(PaymentSettingsRepositoryInterface::class), ServiceRegister::getService(IntegrationStoreService::class), ServiceRegister::getService(PayByLinkSettingsRepositoryInterface::class));
+            return new GeneralSettingsService(ServiceRegister::getService(ConnectionConfigRepositoryInterface::class), ServiceRegister::getService(LogSettingsRepositoryInterface::class), ServiceRegister::getService(PaymentSettingsRepositoryInterface::class), ServiceRegister::getService(PaymentSettingsService::class), ServiceRegister::getService(PayByLinkSettingsRepositoryInterface::class), WebhookMode::isAutomatic() ? ServiceRegister::getService(WebhookSettingsRepositoryInterface::class) : null);
         });
         ServiceRegister::registerService(DisconnectService::class, function () {
             return new DisconnectService(ServiceRegister::getService(ShopPaymentService::class), ServiceRegister::getService(ConnectionConfigRepositoryInterface::class), ServiceRegister::getService(PaymentSettingsRepositoryInterface::class), ServiceRegister::getService(LogSettingsRepositoryInterface::class), ServiceRegister::getService(PaymentMethodConfigRepositoryInterface::class), ServiceRegister::getService(PayByLinkSettingsRepositoryInterface::class), ServiceRegister::getService(DisconnectTaskEnqueuerInterface::class));
@@ -223,10 +255,10 @@ class BootstrapComponent extends BaseBootstrapComponent
             return new MonitoringLogsService(ServiceRegister::getService(MonitoringLogRepositoryInterface::class), ServiceRegister::getService(DisconnectRepositoryInterface::class));
         }));
         ServiceRegister::registerService(WebhookLogsService::class, new SingleInstance(static function () {
-            return new WebhookLogsService(ServiceRegister::getService(WebhookLogRepositoryInterface::class), ServiceRegister::getService(PaymentsProxyInterface::class), ServiceRegister::getService(DisconnectRepositoryInterface::class), ServiceRegister::getService(ActiveBrandProviderInterface::class), ServiceRegister::getService(PaymentTransactionRepositoryInterface::class));
+            return new WebhookLogsService(ServiceRegister::getService(WebhookLogRepositoryInterface::class), ServiceRegister::getService(PaymentsProxyInterface::class), ServiceRegister::getService(DisconnectRepositoryInterface::class), ServiceRegister::getService(ActiveBrandProviderInterface::class), ServiceRegister::getService(PaymentTransactionRepositoryInterface::class), ServiceRegister::getService(LogSettingsRepositoryInterface::class));
         }));
         ServiceRegister::registerService(PaymentLinksService::class, new SingleInstance(static function () {
-            return new PaymentLinksService(ServiceRegister::getService(PaymentLinksProxyInterface::class), ServiceRegister::getService(ThreeDSSettingsService::class), ServiceRegister::getService(PaymentSettingsRepositoryInterface::class), ServiceRegister::getService(PayByLinkSettingsRepositoryInterface::class), ServiceRegister::getService(PaymentLinkRepositoryInterface::class), ServiceRegister::getService(PaymentTransactionRepositoryInterface::class), ServiceRegister::getService(PaymentMethodService::class), ServiceRegister::getService(PaymentProductService::class));
+            return new PaymentLinksService(ServiceRegister::getService(PaymentLinksProxyInterface::class), ServiceRegister::getService(ThreeDSSettingsService::class), ServiceRegister::getService(PaymentSettingsService::class), ServiceRegister::getService(PayByLinkSettingsRepositoryInterface::class), ServiceRegister::getService(PaymentLinkRepositoryInterface::class), ServiceRegister::getService(PaymentTransactionRepositoryInterface::class), ServiceRegister::getService(PaymentMethodService::class), ServiceRegister::getService(PaymentProductService::class));
         }));
         ServiceRegister::registerService(DisconnectTaskEnqueuerInterface::class, new SingleInstance(static function () {
             return new DisconnectTaskEnqueuer(ServiceRegister::getService(DisconnectRepositoryInterface::class), ServiceRegister::getService(QueueService::class));
@@ -249,11 +281,20 @@ class BootstrapComponent extends BaseBootstrapComponent
         ServiceRegister::registerService(LogCleanupTaskServiceInterface::class, new SingleInstance(static function () {
             return new LogCleanupTaskService();
         }));
+        ServiceRegister::registerService(TenantRegistryInterface::class, new SingleInstance(static function () {
+            return new DefaultTenantRegistry();
+        }));
         ServiceRegister::registerService(PaymentProductService::class, new SingleInstance(static function () {
-            return new PaymentProductService();
+            return new PaymentProductService(ServiceRegister::getService(PaymentMethodProxyInterface::class));
         }));
         ServiceRegister::registerService(ThreeDSSettingsService::class, new SingleInstance(static function () {
-            return new ThreeDSSettingsService(ServiceRegister::getService(PaymentConfigRepositoryInterface::class));
+            return new ThreeDSSettingsService(
+                ServiceRegister::getService(PaymentConfigRepositoryInterface::class),
+                // The DOMAIN contract, which is read-only. The AdminConfig one is read+write+delete and
+                // would point Domain outward at AdminConfig - one `use` statement away from a
+                // SHARED_CORE_ARCHITECTURE violation, and satisfied by the same concrete repository.
+                ServiceRegister::getService(DomainPaymentSettingsRepositoryInterface::class)
+            );
         }));
         ServiceRegister::registerService(PaymentLinkTransactionService::class, new SingleInstance(static function () {
             return new PaymentLinkTransactionService(ServiceRegister::getService(PaymentLinksProxyInterface::class), ServiceRegister::getService(PaymentLinkRepositoryInterface::class), ServiceRegister::getService(PaymentTransactionRepositoryInterface::class));
@@ -291,6 +332,21 @@ class BootstrapComponent extends BaseBootstrapComponent
         ServiceRegister::registerService(PaymentSettingsRepositoryInterface::class, new SingleInstance(static function () {
             return new PaymentSettingsRepository(RepositoryRegistry::getRepository(PaymentSettingsConfigEntity::class), StoreContext::getInstance(), ServiceRegister::getService(ActiveConnectionProvider::class));
         }));
+        // The same concrete repository, bound to the READ-ONLY Domain contract as well.
+        //
+        // Domain code must not depend on the AdminConfig interface: that one is read+write+delete and
+        // points the dependency outward, which SHARED_CORE_ARCHITECTURE forbids. Both contracts are
+        // satisfied by this one object, so the split costs nothing at runtime and keeps the cascade's
+        // baseline read inside Domain.
+        ServiceRegister::registerService(DomainPaymentSettingsRepositoryInterface::class, new SingleInstance(static function () {
+            return ServiceRegister::getService(PaymentSettingsRepositoryInterface::class);
+        }));
+        // The ONE reader of the payment settings baseline, shared by the admin and by checkout
+        // (ADR-0003 decision 9). `PaymentSettingsRepository` satisfies both the AdminConfig contract
+        // registered above and the read-only Domain one this service depends on.
+        ServiceRegister::registerService(PaymentSettingsService::class, new SingleInstance(static function () {
+            return new PaymentSettingsService(ServiceRegister::getService(PaymentSettingsRepositoryInterface::class), ServiceRegister::getService(IntegrationStoreService::class));
+        }));
         ServiceRegister::registerService(LogSettingsRepositoryInterface::class, new SingleInstance(static function () {
             return new LogSettingsRepository(RepositoryRegistry::getRepository(LogSettingsEntity::class), StoreContext::getInstance(), ServiceRegister::getService(ActiveConnectionProvider::class));
         }));
@@ -299,6 +355,9 @@ class BootstrapComponent extends BaseBootstrapComponent
         }));
         ServiceRegister::registerService(PayByLinkSettingsRepositoryInterface::class, new SingleInstance(static function () {
             return new PayByLinkSettingsRepository(RepositoryRegistry::getRepository(PayByLinkSettingsEntity::class), StoreContext::getInstance(), ServiceRegister::getService(ActiveConnectionProvider::class));
+        }));
+        ServiceRegister::registerService(WebhookSettingsRepositoryInterface::class, new SingleInstance(static function () {
+            return new WebhookSettingsRepository(RepositoryRegistry::getRepository(WebhookSettingsEntity::class), StoreContext::getInstance());
         }));
         ServiceRegister::registerService(PaymentLinkRepositoryInterface::class, new SingleInstance(static function () {
             return new PaymentLinkRepository(RepositoryRegistry::getRepository(PaymentLinkEntity::class), StoreContext::getInstance());
@@ -356,7 +415,7 @@ class BootstrapComponent extends BaseBootstrapComponent
             return new LanguageController(ServiceRegister::getService(LanguageService::class));
         }));
         ServiceRegister::registerService(GeneralSettingsController::class, new SingleInstance(static function () {
-            return new GeneralSettingsController(ServiceRegister::getService(GeneralSettingsService::class), ServiceRegister::getService(DisconnectService::class));
+            return new GeneralSettingsController(ServiceRegister::getService(GeneralSettingsService::class), ServiceRegister::getService(DisconnectService::class), ServiceRegister::getService(TestWebhookService::class));
         }));
         ServiceRegister::registerService(ProductTypesController::class, new SingleInstance(static function () {
             return new ProductTypesController(ServiceRegister::getService(ProductTypeService::class));
@@ -400,6 +459,12 @@ class BootstrapComponent extends BaseBootstrapComponent
         ServiceRegister::registerService(ConnectionProxyInterface::class, new SingleInstance(static function () {
             return new ConnectionProxy(ServiceRegister::getService(MerchantClientFactory::class));
         }));
+        ServiceRegister::registerService(HealthCheckProxyInterface::class, new SingleInstance(static function () {
+            return new HealthCheckProxy(ServiceRegister::getService(MerchantClientFactory::class));
+        }));
+        ServiceRegister::registerService(ApiFailureClassifierInterface::class, new SingleInstance(static function () {
+            return new SdkApiFailureClassifier();
+        }));
         ServiceRegister::registerService(PaymentLinksProxyInterface::class, new SingleInstance(static function () {
             return new PaymentLinksProxy(ServiceRegister::getService(MerchantClientFactory::class));
         }));
@@ -422,13 +487,13 @@ class BootstrapComponent extends BaseBootstrapComponent
     protected static function initBackgroundProcesses(): void
     {
         ServiceRegister::registerService(WaitPaymentOutcomeProcessStarterInterface::class, new SingleInstance(static function () {
-            return new WaitPaymentOutcomeProcessStarter(ServiceRegister::getService(AsyncProcessService::class), StoreContext::getInstance());
+            return new WaitPaymentOutcomeProcessStarter(ServiceRegister::getService(AsyncProcessService::class), StoreContext::getInstance(), TenantContext::getInstance());
         }));
         ServiceRegister::registerService(TransactionStatusCheckListener::class, new SingleInstance(static function () {
-            return new TransactionStatusCheckListener(ServiceRegister::getService(QueueService::class), ServiceRegister::getService(TimeProviderInterface::class));
+            return new TransactionStatusCheckListener(ServiceRegister::getService(QueueService::class), ServiceRegister::getService(TimeProviderInterface::class), ServiceRegister::getService(TenantRegistryInterface::class));
         }));
         ServiceRegister::registerService(AutoCaptureCheckListener::class, new SingleInstance(static function () {
-            return new AutoCaptureCheckListener(ServiceRegister::getService(QueueService::class), ServiceRegister::getService(TimeProviderInterface::class));
+            return new AutoCaptureCheckListener(ServiceRegister::getService(QueueService::class), ServiceRegister::getService(TimeProviderInterface::class), ServiceRegister::getService(TenantRegistryInterface::class));
         }));
     }
     /**

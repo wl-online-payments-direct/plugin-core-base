@@ -18,7 +18,7 @@ use WOP\OnlinePayments\Core\BusinessLogic\Domain\PaymentMethod\MethodAdditionalD
  */
 interface PaymentsProxyInterface
 {
-    public function create(PaymentRequest $request, ThreeDSSettings $cardsSettings, PaymentSettings $paymentSettings, ?Token $token = null, ?PaymentAction $paymentAction = null): PaymentResponse;
+    public function create(PaymentRequest $request, ThreeDSSettings $cardsSettings, PaymentSettings $paymentSettings, ?Token $token = null, ?PaymentAction $paymentAction = null, string $fallbackLocale = ''): PaymentResponse;
     public function getPaymentDetails(PaymentId $paymentId): PaymentDetails;
     public function tryToGetPayment(PaymentId $paymentId): ?Payment;
     public function getPayment(PaymentId $paymentId): Payment;

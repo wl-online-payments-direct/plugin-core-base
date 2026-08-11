@@ -9,20 +9,27 @@ namespace WOP\OnlinePayments\Core\BusinessLogic\Domain\GeneralSettings;
  */
 class LogSettings
 {
-    protected bool $debugMode;
+    protected bool $webhookLogging;
+    protected bool $requestResponseLogging;
     protected LogRecordsLifetime $logRecordsLifetime;
     /**
-     * @param bool $debugMode
+     * @param bool $webhookLogging Logs every received and sent webhook notification.
+     * @param bool $requestResponseLogging Captures full raw API request/response payloads.
      * @param LogRecordsLifetime $logRecordsLifetime
      */
-    public function __construct(bool $debugMode, LogRecordsLifetime $logRecordsLifetime)
+    public function __construct(bool $webhookLogging, bool $requestResponseLogging, LogRecordsLifetime $logRecordsLifetime)
     {
-        $this->debugMode = $debugMode;
+        $this->webhookLogging = $webhookLogging;
+        $this->requestResponseLogging = $requestResponseLogging;
         $this->logRecordsLifetime = $logRecordsLifetime;
     }
-    public function isDebugMode(): bool
+    public function isWebhookLogging(): bool
     {
-        return $this->debugMode;
+        return $this->webhookLogging;
+    }
+    public function isRequestResponseLogging(): bool
+    {
+        return $this->requestResponseLogging;
     }
     public function getLogRecordsLifetime(): LogRecordsLifetime
     {

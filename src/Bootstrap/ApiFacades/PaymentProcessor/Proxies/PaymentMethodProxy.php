@@ -9,6 +9,7 @@ use WOP\OnlinePayments\Core\BusinessLogic\Domain\Checkout\Cart\Cart;
 use WOP\OnlinePayments\Core\BusinessLogic\Domain\Monitoring\ContextLogProvider;
 use WOP\OnlinePayments\Core\BusinessLogic\Domain\PaymentMethod\PaymentMethodCollection;
 use WOP\OnlinePayments\Core\BusinessLogic\PaymentProcessor\Proxies\PaymentMethodProxyInterface;
+use OnlinePayments\Sdk\Merchant\Products\GetPaymentProductsParams;
 /**
  * Class PaymentMethodProxy.
  *
@@ -25,5 +26,12 @@ class PaymentMethodProxy implements PaymentMethodProxyInterface
     {
         ContextLogProvider::getInstance()->setCurrentOrder($cart->getMerchantReference());
         return GetPaymentProductsResponseTransformer::transform($this->clientFactory->get()->products()->getPaymentProducts(GetPaymentProductsParamsTransformer::transform($cart)));
+    }
+    public function getSupportedPaymentMethods(string $countryCode, string $currencyCode): PaymentMethodCollection
+    {
+        $params = new GetPaymentProductsParams();
+        $params->setCountryCode($countryCode);
+        $params->setCurrencyCode($currencyCode);
+        return GetPaymentProductsResponseTransformer::transform($this->clientFactory->get()->products()->getPaymentProducts($params));
     }
 }

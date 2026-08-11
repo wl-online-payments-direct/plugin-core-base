@@ -5,29 +5,31 @@ namespace WOP\OnlinePayments\Core\Bootstrap\Disconnect\Tasks;
 use DateTime;
 use Exception;
 use WOP\OnlinePayments\Core\Bootstrap\DataAccess\Disconnect\DisconnectRepository;
+use WOP\OnlinePayments\Core\Bootstrap\TaskExecution\TenantAwareTask;
 use WOP\OnlinePayments\Core\BusinessLogic\AdminConfig\Services\Monitoring\MonitoringLogsService;
 use WOP\OnlinePayments\Core\BusinessLogic\AdminConfig\Services\Monitoring\WebhookLogsService;
 use WOP\OnlinePayments\Core\BusinessLogic\Domain\Multistore\StoreContext;
 use WOP\OnlinePayments\Core\Infrastructure\Serializer\Serializer;
 use WOP\OnlinePayments\Core\Infrastructure\ServiceRegister;
-use WOP\OnlinePayments\Core\Infrastructure\TaskExecution\Task;
 /**
  * Class DisconnectTask
  *
  * @package OnlinePayments\Core\BusinessLogic\Domain\Disconnect\Tasks
  */
-class DisconnectTask extends Task
+class DisconnectTask extends TenantAwareTask
 {
     private string $storeId;
     private DateTime $dateTime;
     private string $mode;
     /**
+     * @param string $tenantId
      * @param string $storeId
      * @param DateTime $dateTime
      * @param string $mode
      */
-    public function __construct(string $storeId, DateTime $dateTime, string $mode)
+    public function __construct(string $tenantId, string $storeId, DateTime $dateTime, string $mode)
     {
+        parent::__construct($tenantId);
         $this->storeId = $storeId;
         $this->dateTime = $dateTime;
         $this->mode = $mode;
@@ -37,14 +39,14 @@ class DisconnectTask extends Task
      */
     public static function fromArray(array $array): DisconnectTask
     {
-        return new static($array['storeId'], (new DateTime())->setTimestamp($array['date']), $array['mode']);
+        return new static($array['tenantId'] ?? '', $array['storeId'], (new DateTime())->setTimestamp($array['date']), $array['mode']);
     }
     /**
      * @inheritDoc
      */
     public function toArray(): array
     {
-        return ['storeId' => $this->storeId, 'date' => $this->dateTime->getTimestamp(), 'mode' => $this->mode];
+        return ['tenantId' => $this->tenantId, 'storeId' => $this->storeId, 'date' => $this->dateTime->getTimestamp(), 'mode' => $this->mode];
     }
     /**
      * @inheritDoc
@@ -59,18 +61,20 @@ class DisconnectTask extends Task
     public function unserialize(string $serialized): void
     {
         $unserialized = Serializer::unserialize($serialized);
+        $this->tenantId = $unserialized['tenantId'] ?? '';
         $this->storeId = $unserialized['storeId'];
         $this->dateTime = (new DateTime())->setTimestamp($unserialized['date']);
+        $this->mode = $unserialized['mode'];
     }
     /**
      * @inheritDoc
      *
      * @throws Exception
      */
-    public function execute(): void
+    protected function doExecute(): void
     {
         StoreContext::doWithStore($this->storeId, function () {
-            $this->doExecute();
+            $this->doDisconnect();
         });
     }
     /**
@@ -78,7 +82,7 @@ class DisconnectTask extends Task
      *
      * @throws Exception
      */
-    protected function doExecute(): void
+    protected function doDisconnect(): void
     {
         $this->deleteMonitoringLogs();
         $this->reportProgress(45);

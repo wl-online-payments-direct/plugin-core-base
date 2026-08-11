@@ -4,7 +4,11 @@ namespace WOP\OnlinePayments\Core\Bootstrap\DataAccess\PaymentMethod;
 
 use WOP\OnlinePayments\Core\BusinessLogic\Domain\Connection\ActiveConnectionProvider;
 use WOP\OnlinePayments\Core\BusinessLogic\Domain\Multistore\StoreContext;
+use WOP\OnlinePayments\Core\BusinessLogic\Domain\PaymentMethod\Exceptions\InvalidPaymentProductIdException;
+use WOP\OnlinePayments\Core\BusinessLogic\Domain\PaymentMethod\MethodAdditionalData\Cards\FlowType;
+use WOP\OnlinePayments\Core\BusinessLogic\Domain\PaymentMethod\MethodAdditionalData\CreditCard;
 use WOP\OnlinePayments\Core\BusinessLogic\Domain\PaymentMethod\PaymentMethod;
+use WOP\OnlinePayments\Core\BusinessLogic\Domain\PaymentMethod\PaymentProductId;
 use WOP\OnlinePayments\Core\BusinessLogic\Domain\PaymentMethod\PaymentMethodCollection;
 use WOP\OnlinePayments\Core\BusinessLogic\Domain\PaymentMethod\Repositories\PaymentConfigRepositoryInterface;
 use WOP\OnlinePayments\Core\BusinessLogic\PaymentProcessor\Repositories\PaymentMethodConfigRepositoryInterface;
@@ -74,6 +78,7 @@ class PaymentMethodConfigRepository implements PaymentMethodConfigRepositoryInte
         $existingConfig = $this->findPaymentMethodConfig($this->getBaseQuery()->where('paymentProductId', Operators::EQUALS, (string) $paymentMethod->getProductId()));
         if ($existingConfig) {
             $existingConfig->setEnabled($paymentMethod->isEnabled());
+            $existingConfig->setSortOrder($paymentMethod->getSortOrder());
             $existingConfig->setPaymentMethod($paymentMethod);
             $this->repository->update($existingConfig);
             return;
@@ -83,6 +88,7 @@ class PaymentMethodConfigRepository implements PaymentMethodConfigRepositoryInte
         $entity->setMode($activeConnection->getMode());
         $entity->setPaymentProductId((string) $paymentMethod->getProductId());
         $entity->setEnabled($paymentMethod->isEnabled());
+        $entity->setSortOrder($paymentMethod->getSortOrder());
         $entity->setPaymentMethod($paymentMethod);
         $this->repository->save($entity);
     }
@@ -140,6 +146,6 @@ class PaymentMethodConfigRepository implements PaymentMethodConfigRepositoryInte
         $activeConnection = $this->activeConnectionProvider->get();
         $mode = $activeConnection ? $activeConnection->getMode() : null;
         $queryFilter = new QueryFilter();
-        return $queryFilter->where('storeId', Operators::EQUALS, $this->storeContext->getStoreId())->where('mode', Operators::EQUALS, (string) $mode);
+        return $queryFilter->where('storeId', Operators::EQUALS, $this->storeContext->getStoreId())->where('mode', Operators::EQUALS, (string) $mode)->orderBy('sortOrder', QueryFilter::ORDER_ASC);
     }
 }

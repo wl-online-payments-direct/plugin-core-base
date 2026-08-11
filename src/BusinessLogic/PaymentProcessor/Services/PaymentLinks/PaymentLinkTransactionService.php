@@ -32,15 +32,15 @@ class PaymentLinkTransactionService
         $paymentLink = $this->paymentLinkRepository->getByMerchantReference($merchantReference);
         $paymentTransaction = $this->paymentTransactionRepository->getByPaymentLinkId($paymentLink->getPaymentLinkId());
         $paymentId = $paymentTransaction->getPaymentId();
-        if ($paymentId) {
+        if ($paymentId && !$paymentTransaction->getStatusCode()->isCanceledOrRejected()) {
             return $paymentId;
         }
         $paymentLinkResponse = $this->paymentLinksProxy->getById($paymentLink->getPaymentLinkId(), $merchantReference);
-        $paymentId = $paymentLinkResponse->getPaymentLink()->getPaymentId();
-        if (!$paymentId) {
-            return null;
+        $linkPaymentId = $paymentLinkResponse->getPaymentLink()->getPaymentId();
+        if (!$linkPaymentId) {
+            return $paymentId;
         }
-        $this->paymentTransactionRepository->updatePaymentId($paymentTransaction, $paymentId);
-        return $paymentId;
+        $this->paymentTransactionRepository->updatePaymentId($paymentTransaction, $linkPaymentId);
+        return $linkPaymentId;
     }
 }

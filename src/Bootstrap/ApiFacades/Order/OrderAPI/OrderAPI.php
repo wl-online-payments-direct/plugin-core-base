@@ -4,6 +4,7 @@ namespace WOP\OnlinePayments\Core\Bootstrap\ApiFacades\Order\OrderAPI;
 
 use WOP\OnlinePayments\Core\Bootstrap\ApiFacades\Aspects\ErrorHandlingAspect;
 use WOP\OnlinePayments\Core\Bootstrap\ApiFacades\Aspects\StoreContextAspect;
+use WOP\OnlinePayments\Core\Bootstrap\ApiFacades\Aspects\TenantContextAspect;
 use WOP\OnlinePayments\Core\Bootstrap\Aspect\Aspects;
 use WOP\OnlinePayments\Core\BusinessLogic\Domain\Multistore\StoreContext;
 use WOP\OnlinePayments\Core\BusinessLogic\Order\ApiFacades\CancelAPI\Controller\CancelController;
@@ -17,6 +18,7 @@ use WOP\OnlinePayments\Core\BusinessLogic\Order\ApiFacades\RefundAPI\Controller\
  */
 class OrderAPI
 {
+    private string $tenantId = '';
     private function __construct()
     {
     }
@@ -28,20 +30,25 @@ class OrderAPI
         StoreContext::getInstance()->setOrigin('order');
         return Aspects::run(new ErrorHandlingAspect())->beforeEachMethodOfInstance(new OrderAPI());
     }
+    public function forTenant(string $tenantId): self
+    {
+        $this->tenantId = $tenantId;
+        return $this;
+    }
     public function orders(string $storeId): object
     {
-        return Aspects::run(new ErrorHandlingAspect())->andRun(new StoreContextAspect($storeId))->beforeEachMethodOfService(OrderController::class);
+        return Aspects::run(new ErrorHandlingAspect())->andRun(new TenantContextAspect($this->tenantId))->andRun(new StoreContextAspect($storeId))->beforeEachMethodOfService(OrderController::class);
     }
     public function capture(string $storeId): object
     {
-        return Aspects::run(new ErrorHandlingAspect())->andRun(new StoreContextAspect($storeId))->beforeEachMethodOfService(CaptureController::class);
+        return Aspects::run(new ErrorHandlingAspect())->andRun(new TenantContextAspect($this->tenantId))->andRun(new StoreContextAspect($storeId))->beforeEachMethodOfService(CaptureController::class);
     }
     public function cancel(string $storeId): object
     {
-        return Aspects::run(new ErrorHandlingAspect())->andRun(new StoreContextAspect($storeId))->beforeEachMethodOfService(CancelController::class);
+        return Aspects::run(new ErrorHandlingAspect())->andRun(new TenantContextAspect($this->tenantId))->andRun(new StoreContextAspect($storeId))->beforeEachMethodOfService(CancelController::class);
     }
     public function refund(string $storeId): object
     {
-        return Aspects::run(new ErrorHandlingAspect())->andRun(new StoreContextAspect($storeId))->beforeEachMethodOfService(RefundController::class);
+        return Aspects::run(new ErrorHandlingAspect())->andRun(new TenantContextAspect($this->tenantId))->andRun(new StoreContextAspect($storeId))->beforeEachMethodOfService(RefundController::class);
     }
 }

@@ -18,6 +18,7 @@ class Cart
     private ?Shipping $shipping;
     private ?Amount $discount;
     private LineItemCollection $lineItems;
+    private ?string $descriptor = null;
     /**
      * @param string $merchantReference
      * @param Amount $total
@@ -75,5 +76,21 @@ class Cart
     public function setDiscount(Amount $discount): void
     {
         $this->discount = $discount;
+    }
+    /**
+     * Soft descriptor to send on the payment (order.references.descriptor); null leaves it unset.
+     *
+     * @return string|null
+     */
+    public function getDescriptor(): ?string
+    {
+        return $this->descriptor;
+    }
+    /**
+     * @param string|null $descriptor
+     */
+    public function setDescriptor(?string $descriptor): void
+    {
+        $this->descriptor = $descriptor;
     }
 }

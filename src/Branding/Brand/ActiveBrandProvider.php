@@ -28,7 +28,17 @@ class ActiveBrandProvider implements ActiveBrandProviderInterface
         $activeBrand = call_user_func($this->activeBrandResolver);
         if (file_exists($this->brandConfigFile)) {
             $brandConfig = json_decode(file_get_contents($this->brandConfigFile), \true);
-            return new BrandConfig($brandConfig['code'], $brandConfig['name'], $brandConfig['liveApiEndpoint'], $brandConfig['testApiEndpoint'], $brandConfig['liveUrl'], $brandConfig['testUrl'], $brandConfig['paymentMethodName']);
+            return new BrandConfig(
+                $brandConfig['code'],
+                $brandConfig['name'],
+                $brandConfig['liveApiEndpoint'],
+                $brandConfig['testApiEndpoint'],
+                $brandConfig['liveUrl'],
+                $brandConfig['testUrl'],
+                $brandConfig['paymentMethodName'],
+                // Optional: brands that offer every supported product simply omit the key.
+                $brandConfig['excludedPaymentProducts'] ?? []
+            );
         }
         throw new \InvalidArgumentException("Brand ({$activeBrand}) configuration not found!");
     }

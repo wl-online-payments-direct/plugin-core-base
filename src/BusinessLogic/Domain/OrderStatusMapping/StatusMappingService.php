@@ -35,8 +35,14 @@ class StatusMappingService
     {
         $mapping = $this->generalSettingsService->getPaymentSettings();
         $mappedStatus = $this->getStatusMapping($paymentDetails->getStatusCode());
-        if ($paymentDetails->getAmounts() && $paymentDetails->getAmounts()->getRefundedAmount()->getValue() > 0 && $paymentDetails->getAmounts()->getRefundedAmount()->getValue() < $paymentDetails->getAmount()->getValue() && !empty($mapping->getPaymentRefundedStatus())) {
-            return $mapping->getPaymentPartiallyRefundedStatus();
+        $amounts = $paymentDetails->getAmounts();
+        $refundedAmount = $amounts && $amounts->getRefundedAmount() ? $amounts->getRefundedAmount()->getValue() : 0;
+        if ($refundedAmount > 0 && !empty($mapping->getPaymentRefundedStatus())) {
+            $capturedAmount = $amounts->getCapturedAmount() ? $amounts->getCapturedAmount()->getValue() : 0;
+            $refundableCeiling = $capturedAmount > 0 ? $capturedAmount : $paymentDetails->getAmount()->getValue();
+            if ($refundedAmount < $refundableCeiling) {
+                return $mapping->getPaymentPartiallyRefundedStatus();
+            }
         }
         return $mappedStatus;
     }

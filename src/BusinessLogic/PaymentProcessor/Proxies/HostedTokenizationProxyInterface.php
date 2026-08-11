@@ -20,7 +20,7 @@ interface HostedTokenizationProxyInterface
      *
      * @return HostedTokenization
      */
-    public function create(Cart $cart, array $savedTokens = [], ?PaymentProductId $productId = null, string $template = ''): HostedTokenization;
+    public function create(Cart $cart, array $savedTokens = [], ?PaymentProductId $productId = null, string $template = '', string $fallbackLocale = 'en_GB', array $allowedBrands = []): HostedTokenization;
     /**
      * @param string $customerId
      * @param string $tokenId

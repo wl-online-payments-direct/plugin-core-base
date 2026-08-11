@@ -15,6 +15,7 @@ class LineItem
     private TaxableAmount $unitPrice;
     private int $quantity;
     private ?Amount $discount;
+    private ?TaxableAmount $lineTotal = null;
     public function __construct(Product $product, TaxableAmount $unitPrice, int $quantity, Amount $discount = null)
     {
         $this->product = $product;
@@ -45,5 +46,25 @@ class LineItem
     public function getDiscount(): ?Amount
     {
         return $this->discount;
+    }
+    /**
+     * Exact line total (price for the whole line), set by integrations that can provide it so the
+     * Mealvouchers merge sums line totals instead of unit price * quantity, avoiding cent drift on
+     * lines that do not divide into whole minor units. Null when not provided.
+     *
+     * @return TaxableAmount|null
+     */
+    public function getLineTotal(): ?TaxableAmount
+    {
+        return $this->lineTotal;
+    }
+    /**
+     * @param TaxableAmount|null $lineTotal
+     *
+     * @return void
+     */
+    public function setLineTotal(?TaxableAmount $lineTotal): void
+    {
+        $this->lineTotal = $lineTotal;
     }
 }

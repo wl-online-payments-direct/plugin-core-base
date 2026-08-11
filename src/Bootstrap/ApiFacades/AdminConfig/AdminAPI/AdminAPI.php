@@ -4,6 +4,7 @@ namespace WOP\OnlinePayments\Core\Bootstrap\ApiFacades\AdminConfig\AdminAPI;
 
 use WOP\OnlinePayments\Core\Bootstrap\ApiFacades\Aspects\ErrorHandlingAspect;
 use WOP\OnlinePayments\Core\Bootstrap\ApiFacades\Aspects\StoreContextAspect;
+use WOP\OnlinePayments\Core\Bootstrap\ApiFacades\Aspects\TenantContextAspect;
 use WOP\OnlinePayments\Core\Bootstrap\Aspect\Aspects;
 use WOP\OnlinePayments\Core\BusinessLogic\AdminConfig\ApiFacades\ConnectionAPI\Controller\ConnectionController;
 use WOP\OnlinePayments\Core\BusinessLogic\AdminConfig\ApiFacades\GeneralSettingsAPI\Controller\GeneralSettingsController;
@@ -23,6 +24,7 @@ use WOP\OnlinePayments\Core\BusinessLogic\PaymentProcessor\ApiFacades\AdminAPI\C
  */
 class AdminAPI
 {
+    private string $tenantId = '';
     private function __construct()
     {
     }
@@ -34,44 +36,49 @@ class AdminAPI
         StoreContext::getInstance()->setOrigin('config');
         return Aspects::run(new ErrorHandlingAspect())->beforeEachMethodOfInstance(new AdminAPI());
     }
+    public function forTenant(string $tenantId): self
+    {
+        $this->tenantId = $tenantId;
+        return $this;
+    }
     public function connection(string $storeId): object
     {
-        return Aspects::run(new ErrorHandlingAspect())->andRun(new StoreContextAspect($storeId))->beforeEachMethodOfService(ConnectionController::class);
+        return Aspects::run(new ErrorHandlingAspect())->andRun(new TenantContextAspect($this->tenantId))->andRun(new StoreContextAspect($storeId))->beforeEachMethodOfService(ConnectionController::class);
     }
     public function version(): object
     {
-        return Aspects::run(new ErrorHandlingAspect())->beforeEachMethodOfService(VersionController::class);
+        return Aspects::run(new ErrorHandlingAspect())->andRun(new TenantContextAspect($this->tenantId))->beforeEachMethodOfService(VersionController::class);
     }
     public function integration(string $storeId): object
     {
-        return Aspects::run(new ErrorHandlingAspect())->andRun(new StoreContextAspect($storeId))->beforeEachMethodOfService(IntegrationController::class);
+        return Aspects::run(new ErrorHandlingAspect())->andRun(new TenantContextAspect($this->tenantId))->andRun(new StoreContextAspect($storeId))->beforeEachMethodOfService(IntegrationController::class);
     }
     public function store(string $storeId): object
     {
-        return Aspects::run(new ErrorHandlingAspect())->andRun(new StoreContextAspect($storeId))->beforeEachMethodOfService(StoreController::class);
+        return Aspects::run(new ErrorHandlingAspect())->andRun(new TenantContextAspect($this->tenantId))->andRun(new StoreContextAspect($storeId))->beforeEachMethodOfService(StoreController::class);
     }
     public function payment(string $storeId): object
     {
-        return Aspects::run(new ErrorHandlingAspect())->andRun(new StoreContextAspect($storeId))->beforeEachMethodOfService(PaymentController::class);
+        return Aspects::run(new ErrorHandlingAspect())->andRun(new TenantContextAspect($this->tenantId))->andRun(new StoreContextAspect($storeId))->beforeEachMethodOfService(PaymentController::class);
     }
     public function language(string $storeId): object
     {
-        return Aspects::run(new ErrorHandlingAspect())->andRun(new StoreContextAspect($storeId))->beforeEachMethodOfService(LanguageController::class);
+        return Aspects::run(new ErrorHandlingAspect())->andRun(new TenantContextAspect($this->tenantId))->andRun(new StoreContextAspect($storeId))->beforeEachMethodOfService(LanguageController::class);
     }
     public function generalSettings(string $storeId): object
     {
-        return Aspects::run(new ErrorHandlingAspect())->andRun(new StoreContextAspect($storeId))->beforeEachMethodOfService(GeneralSettingsController::class);
+        return Aspects::run(new ErrorHandlingAspect())->andRun(new TenantContextAspect($this->tenantId))->andRun(new StoreContextAspect($storeId))->beforeEachMethodOfService(GeneralSettingsController::class);
     }
     public function productTypes(): object
     {
-        return Aspects::run(new ErrorHandlingAspect())->beforeEachMethodOfService(ProductTypesController::class);
+        return Aspects::run(new ErrorHandlingAspect())->andRun(new TenantContextAspect($this->tenantId))->beforeEachMethodOfService(ProductTypesController::class);
     }
     public function monitoringLogs(string $storeId): object
     {
-        return Aspects::run(new ErrorHandlingAspect())->andRun(new StoreContextAspect($storeId))->beforeEachMethodOfService(LogsController::class);
+        return Aspects::run(new ErrorHandlingAspect())->andRun(new TenantContextAspect($this->tenantId))->andRun(new StoreContextAspect($storeId))->beforeEachMethodOfService(LogsController::class);
     }
     public function paymentLinks(string $storeId): object
     {
-        return Aspects::run(new ErrorHandlingAspect())->andRun(new StoreContextAspect($storeId))->beforeEachMethodOfService(PaymentLinksController::class);
+        return Aspects::run(new ErrorHandlingAspect())->andRun(new TenantContextAspect($this->tenantId))->andRun(new StoreContextAspect($storeId))->beforeEachMethodOfService(PaymentLinksController::class);
     }
 }

@@ -66,7 +66,13 @@ class Customer
     {
         $this->device = $device;
     }
-    public function getFormattedLocale(): string
+    /**
+     * @param string $fallbackLocale Used when neither the customer's locale nor a same-language match
+     *  is in SUPPORTED_LOCALES - normally the merchant's configured PaymentSettings::getFallbackLocale().
+     *
+     * @return string
+     */
+    public function getFormattedLocale(string $fallbackLocale = 'en_GB'): string
     {
         if (in_array($this->locale, self::SUPPORTED_LOCALES, \true)) {
             return $this->locale;
@@ -78,9 +84,9 @@ class Customer
         if (in_array($normalized, self::SUPPORTED_LOCALES, \true)) {
             return $normalized;
         }
-        return $this->findLocaleByLanguage($normalized);
+        return $this->findLocaleByLanguage($normalized, $fallbackLocale);
     }
-    private function findLocaleByLanguage(string $language): string
+    private function findLocaleByLanguage(string $language, string $fallbackLocale): string
     {
         $language = substr($language, 0, 2);
         foreach (self::SUPPORTED_LOCALES as $locale) {
@@ -88,6 +94,6 @@ class Customer
                 return $locale;
             }
         }
-        return 'en_GB';
+        return $fallbackLocale;
     }
 }

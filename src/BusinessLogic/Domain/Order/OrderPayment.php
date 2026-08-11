@@ -20,6 +20,8 @@ class OrderPayment
     private ?string $fraudResult;
     private ?string $liability;
     private ?string $exemptionType;
+    private ?string $bin;
+    private ?string $cardNumber;
     /**
      * @param PaymentId $id
      * @param string $status
@@ -30,8 +32,10 @@ class OrderPayment
      * @param string|null $fraudResult
      * @param string|null $liability
      * @param string|null $exemptionType
+     * @param string|null $bin
+     * @param string|null $cardNumber
      */
-    public function __construct(PaymentId $id, string $status, Amount $amount, ?Amount $surcharge, ?string $paymentMethodName, ?string $paymentMethodId, ?string $fraudResult, ?string $liability, ?string $exemptionType)
+    public function __construct(PaymentId $id, string $status, Amount $amount, ?Amount $surcharge, ?string $paymentMethodName, ?string $paymentMethodId, ?string $fraudResult, ?string $liability, ?string $exemptionType, ?string $bin = null, ?string $cardNumber = null)
     {
         $this->id = $id;
         $this->status = $status;
@@ -42,6 +46,8 @@ class OrderPayment
         $this->fraudResult = $fraudResult;
         $this->liability = $liability;
         $this->exemptionType = $exemptionType;
+        $this->bin = $bin;
+        $this->cardNumber = $cardNumber;
     }
     public function getId(): PaymentId
     {
@@ -78,5 +84,13 @@ class OrderPayment
     public function getExemptionType(): ?string
     {
         return $this->exemptionType;
+    }
+    public function getBin(): ?string
+    {
+        return $this->bin;
+    }
+    public function getCardNumber(): ?string
+    {
+        return $this->cardNumber;
     }
 }

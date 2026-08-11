@@ -54,7 +54,7 @@ class WebhookLogRepository implements WebhookLogRepositoryInterface
         $logSettings = $this->logSettingsRepository->getLogSettings();
         $createdAtDate = clone $webhookLog->getCreatedAt();
         $createdAt = $webhookLog->getCreatedAt()->getTimestamp();
-        $expiresAt = $webhookLog->getCreatedAt()->add(new DateInterval('P14D'))->getTimestamp();
+        $expiresAt = (clone $webhookLog->getCreatedAt())->add(new DateInterval('P14D'))->getTimestamp();
         if ($logSettings) {
             $expiresAt = $createdAtDate->add(new DateInterval('P' . $logSettings->getLogRecordsLifetime()->getDays() . 'D'))->getTimestamp();
         }
