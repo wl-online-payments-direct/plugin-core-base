@@ -25,12 +25,7 @@ class PaymentTransaction
     private ?string $paymentMethod;
     private ?DateTime $captureAt;
     private ?string $paymentLinkId;
-    /**
-     * Number of times the background fallback cron has already queried this transaction's status.
-     * Used to derive the next due check via FallbackCheckSchedule; unrelated to the landing/webhook paths.
-     */
-    private int $fallbackCheckAttempts;
-    public function __construct(string $merchantReference, ?PaymentId $paymentId = null, ?string $returnHmac = null, ?StatusCode $statusCode = null, ?string $customerId = null, ?DateTime $createdAt = null, ?DateTime $updatedAt = null, ?DateTime $returnedAt = null, ?string $paymentMethod = null, ?DateTime $captureAt = null, ?string $paymentLinkId = null, int $fallbackCheckAttempts = 0)
+    public function __construct(string $merchantReference, ?PaymentId $paymentId = null, ?string $returnHmac = null, ?StatusCode $statusCode = null, ?string $customerId = null, ?DateTime $createdAt = null, ?DateTime $updatedAt = null, ?DateTime $returnedAt = null, ?string $paymentMethod = null, ?DateTime $captureAt = null, ?string $paymentLinkId = null)
     {
         $this->merchantReference = $merchantReference;
         $this->paymentId = $paymentId;
@@ -43,7 +38,6 @@ class PaymentTransaction
         $this->paymentMethod = $paymentMethod;
         $this->captureAt = $captureAt;
         $this->paymentLinkId = $paymentLinkId;
-        $this->fallbackCheckAttempts = $fallbackCheckAttempts;
     }
     public function getMerchantReference(): string
     {
@@ -120,14 +114,6 @@ class PaymentTransaction
     public function setPaymentId(?PaymentId $paymentId): void
     {
         $this->paymentId = $paymentId;
-    }
-    public function getFallbackCheckAttempts(): int
-    {
-        return $this->fallbackCheckAttempts;
-    }
-    public function setFallbackCheckAttempts(int $fallbackCheckAttempts): void
-    {
-        $this->fallbackCheckAttempts = $fallbackCheckAttempts;
     }
     public static function createFromPaymentLink(PaymentLink $paymentLink): PaymentTransaction
     {

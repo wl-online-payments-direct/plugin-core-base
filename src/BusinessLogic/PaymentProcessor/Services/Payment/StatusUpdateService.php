@@ -30,8 +30,12 @@ class StatusUpdateService
     /**
      * Overall max waiting time in seconds for pending transactions. After max wait time exceeds the transaction
      * is no more considered as pending.
+     *
+     * This is how long a shopper who returned to the shop is kept on the waiting page while the outcome of the
+     * payment has not been reported yet. Once it elapses the order is created in the pending state and the shopper
+     * continues to the confirmation page; webhooks arriving afterwards keep updating the order as usual.
      */
-    private const MAX_PENDING_TRANSACTIONS_WAIT_TIME = 30;
+    private const MAX_PENDING_TRANSACTIONS_WAIT_TIME = 10;
     private PaymentTransactionRepositoryInterface $paymentTransactionRepository;
     private PaymentsProxyInterface $paymentsProxy;
     private TokensRepositoryInterface $tokensRepository;
@@ -86,12 +90,6 @@ class StatusUpdateService
             $this->saveToken($paymentTransaction, $paymentDetails);
             return;
         }
-        // The transaction can still resolve to a success or a failure while Pending, so the shop order
-        // must be left untouched (neither created nor updated) until a final status is known - the
-        // latest status code was already persisted on the transaction above.
-        if ($paymentDetails->getStatusCode()->isPending()) {
-            return;
-        }
         if ($paymentDetails->getStatusCode()->isCanceledOrRejected()) {
             $this->shopOrderService->cancelShopOrder($paymentTransaction, $paymentDetails, $newState);
             return;
@@ -115,11 +113,6 @@ class StatusUpdateService
             return \true;
         }
         if ($paymentDetails->getStatusCode()->isCanceledOrRejected() || $paymentDetails->getStatusCode()->isRefunded() || $paymentDetails->getStatusCode()->equals(StatusCode::incomplete())) {
-            return \false;
-        }
-        // Never create the order while Pending, even if the wait-time window has elapsed - the
-        // transaction can still progress to a success or a failure (see isPending() guard below).
-        if ($paymentDetails->getStatusCode()->isPending()) {
             return \false;
         }
         return !$this->getPaymentOutcome($paymentTransaction)->isWaiting();

@@ -31,14 +31,7 @@ class MerchantClientFactory
         $this->activeBrandProvider = $activeBrandProvider;
         $this->metadataProvider = $metadataProvider;
     }
-    /**
-     * @param ConnectionDetails|null $activeConnection
-     * @param int|null $timeoutSeconds Per-request connect and read timeout. Null leaves the SDK default
-     *  (no timeout) in place.
-     *
-     * @return MerchantClientInterface
-     */
-    public function get(?ConnectionDetails $activeConnection = null, ?int $timeoutSeconds = null): MerchantClientInterface
+    public function get(?ConnectionDetails $activeConnection = null): MerchantClientInterface
     {
         if (null === $activeConnection) {
             $activeConnection = $this->activeConnectionProvider->get();
@@ -46,15 +39,9 @@ class MerchantClientFactory
         if (null === $activeConnection) {
             throw new InvalidConnectionDetailsException(new TranslatableLabel('Connection details are invalid. Missing active credentials.', 'connection.invalidActiveCredentials'));
         }
-        $communicatorConfiguration = new CommunicatorConfiguration($activeConnection->getActiveCredentials()->getApiKey(), $activeConnection->getActiveCredentials()->getApiSecret(), $this->getApiEndpoint($activeConnection), self::INTEGRATOR);
-        if (null !== $timeoutSeconds) {
-            $communicatorConfiguration->setConnectTimeout($timeoutSeconds);
-            $communicatorConfiguration->setReadTimeout($timeoutSeconds);
-        }
-        // DefaultConnection reads the timeouts once, in its constructor, so the configuration has to be
-        // complete before the connection is built.
-        $dbLogConnection = new DbLogConnection(new CommunicatorLoggerHelper(), $communicatorConfiguration);
+        $dbLogConnection = new DbLogConnection(new CommunicatorLoggerHelper());
         $dbLogConnection->enableLogging(new ApiLogger());
+        $communicatorConfiguration = new CommunicatorConfiguration($activeConnection->getActiveCredentials()->getApiKey(), $activeConnection->getActiveCredentials()->getApiSecret(), $this->getApiEndpoint($activeConnection), self::INTEGRATOR);
         $authenticator = new V1HmacAuthenticator($communicatorConfiguration);
         $communicator = new MetricsProvidingCommunicator($communicatorConfiguration, $authenticator, $dbLogConnection, $this->activeBrandProvider, $this->metadataProvider, StoreContext::getInstance());
         $client = new Client($communicator);

@@ -6,8 +6,8 @@ use WOP\OnlinePayments\Core\BusinessLogic\AdminConfig\Services\GeneralSettings\R
 use WOP\OnlinePayments\Core\BusinessLogic\Domain\Checkout\Cart\CartProvider;
 use WOP\OnlinePayments\Core\BusinessLogic\Domain\GeneralSettings\PayByLinkSettings;
 use WOP\OnlinePayments\Core\BusinessLogic\Domain\GeneralSettings\PaymentSettings;
-use WOP\OnlinePayments\Core\BusinessLogic\Domain\GeneralSettings\PaymentSettingsService;
 use WOP\OnlinePayments\Core\BusinessLogic\Domain\Payment\PaymentTransaction;
+use WOP\OnlinePayments\Core\BusinessLogic\Domain\Payment\Repositories\PaymentSettingsRepositoryInterface;
 use WOP\OnlinePayments\Core\BusinessLogic\Domain\Payment\Repositories\PaymentTransactionRepositoryInterface;
 use WOP\OnlinePayments\Core\BusinessLogic\Domain\PaymentLinks\PaymentLinkRequest;
 use WOP\OnlinePayments\Core\BusinessLogic\Domain\PaymentLinks\PaymentLinkResponse;
@@ -28,17 +28,17 @@ class PaymentLinksService
 {
     private PaymentLinksProxyInterface $paymentLinksProxy;
     private ThreeDSSettingsService $threeDSSettingsService;
-    private PaymentSettingsService $paymentSettingsService;
+    private PaymentSettingsRepositoryInterface $paymentSettingsRepository;
     private PayByLinkSettingsRepositoryInterface $payByLinkSettingsRepository;
     private PaymentLinkRepositoryInterface $paymentLinkRepository;
     private PaymentTransactionRepositoryInterface $paymentTransactionRepository;
     private PaymentMethodService $paymentMethodService;
     private PaymentProductService $paymentProductService;
-    public function __construct(PaymentLinksProxyInterface $paymentLinksProxy, ThreeDSSettingsService $threeDSSettingsService, PaymentSettingsService $paymentSettingsService, PayByLinkSettingsRepositoryInterface $payByLinkSettingsRepository, PaymentLinkRepositoryInterface $paymentLinkRepository, PaymentTransactionRepositoryInterface $paymentTransactionRepository, PaymentMethodService $paymentMethodService, PaymentProductService $paymentProductService)
+    public function __construct(PaymentLinksProxyInterface $paymentLinksProxy, ThreeDSSettingsService $threeDSSettingsService, PaymentSettingsRepositoryInterface $paymentSettingsRepository, PayByLinkSettingsRepositoryInterface $payByLinkSettingsRepository, PaymentLinkRepositoryInterface $paymentLinkRepository, PaymentTransactionRepositoryInterface $paymentTransactionRepository, PaymentMethodService $paymentMethodService, PaymentProductService $paymentProductService)
     {
         $this->paymentLinksProxy = $paymentLinksProxy;
         $this->threeDSSettingsService = $threeDSSettingsService;
-        $this->paymentSettingsService = $paymentSettingsService;
+        $this->paymentSettingsRepository = $paymentSettingsRepository;
         $this->payByLinkSettingsRepository = $payByLinkSettingsRepository;
         $this->paymentLinkRepository = $paymentLinkRepository;
         $this->paymentTransactionRepository = $paymentTransactionRepository;
@@ -67,7 +67,8 @@ class PaymentLinksService
     }
     private function getPaymentSettings(): PaymentSettings
     {
-        return $this->paymentSettingsService->getPaymentSettings();
+        $savedSettings = $this->paymentSettingsRepository->getPaymentSettings();
+        return $savedSettings ?: new PaymentSettings();
     }
     private function getPayByLinkSettings(): PayByLinkSettings
     {

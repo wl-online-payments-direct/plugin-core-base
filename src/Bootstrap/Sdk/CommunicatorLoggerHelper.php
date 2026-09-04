@@ -53,7 +53,7 @@ class CommunicatorLoggerHelper extends SdkCommunicatorLoggerHelper
     private function isDebugEnabled(): bool
     {
         $generalSettings = $this->getGeneralSettingsService()->getLogSettings();
-        return $generalSettings->isRequestResponseLogging();
+        return $generalSettings->isDebugMode();
     }
     /**
      * @return MonitoringLogRepositoryInterface

@@ -8,7 +8,7 @@ use WOP\OnlinePayments\Core\BusinessLogic\Domain\PaymentMethod\MethodAdditionalD
  *
  * @package OnlinePayments\Core\BusinessLogic\Domain\PaymentMethod\MethodAdditionalData
  */
-class GooglePay implements CarriesThreeDSSettings
+class GooglePay implements PaymentMethodAdditionalData
 {
     protected ?ThreeDSSettings $threeDSSettings;
     /**
@@ -21,13 +21,5 @@ class GooglePay implements CarriesThreeDSSettings
     public function getThreeDSSettings(): ?ThreeDSSettings
     {
         return $this->threeDSSettings;
-    }
-    /**
-     * Always the merchant's own: this shape has no inherit state, because the method carries a 3DS
-     * block only once it has been configured.
-     */
-    public function hasThreeDSSettings(): bool
-    {
-        return null !== $this->getThreeDSSettings();
     }
 }

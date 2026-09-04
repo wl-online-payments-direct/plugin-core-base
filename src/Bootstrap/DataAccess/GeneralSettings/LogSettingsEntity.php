@@ -34,14 +34,14 @@ class LogSettingsEntity extends Entity
         $this->storeId = $data['storeId'];
         $this->mode = $data['mode'];
         $logSettings = $data['logSettings'];
-        $this->logSettings = new LogSettings($logSettings['webhookLogging'] ?? \false, $logSettings['requestResponseLogging'] ?? \false, LogRecordsLifetime::create($logSettings['logRecordsLifetime']));
+        $this->logSettings = new LogSettings($logSettings['debugMode'], LogRecordsLifetime::create($logSettings['logRecordsLifetime']));
     }
     public function toArray(): array
     {
         $data = parent::toArray();
         $data['storeId'] = $this->storeId;
         $data['mode'] = $this->mode;
-        $data['logSettings'] = ['webhookLogging' => $this->logSettings->isWebhookLogging(), 'requestResponseLogging' => $this->logSettings->isRequestResponseLogging(), 'logRecordsLifetime' => $this->logSettings->getLogRecordsLifetime()->getDays()];
+        $data['logSettings'] = ['debugMode' => $this->logSettings->isDebugMode(), 'logRecordsLifetime' => $this->logSettings->getLogRecordsLifetime()->getDays()];
         return $data;
     }
     public function getStoreId(): string

@@ -25,25 +25,13 @@ class ConnectionController
      *
      * @return ConnectionResponse
      *
-     * @throws InvalidConnectionDetailsException When the request itself is missing credentials for its mode.
+     * @throws InvalidConnectionDetailsException
      * @throws InvalidConnectionModeException
      */
     public function connect(ConnectionRequest $connectionRequest): ConnectionResponse
     {
-        $result = $this->connectionService->connect($connectionRequest->transformToDomainModel());
-        return new ConnectionResponse($result, $result->isSaveable());
-    }
-    /**
-     * Validates the already-saved connection details without writing anything back. Backs the
-     * "Check Credentials" action offered for a loaded, unmodified configuration.
-     *
-     * @return ConnectionResponse
-     *
-     * @throws InvalidConnectionDetailsException When no connection has been saved for this store yet.
-     */
-    public function checkCredentials(): ConnectionResponse
-    {
-        return new ConnectionResponse($this->connectionService->checkSavedConnection(), \false);
+        $this->connectionService->connect($connectionRequest->transformToDomainModel());
+        return new ConnectionResponse();
     }
     /**
      * @return ConnectionConfigResponse

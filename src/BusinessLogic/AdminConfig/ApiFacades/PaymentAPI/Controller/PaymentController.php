@@ -49,55 +49,6 @@ class PaymentController
         return new PaymentMethodsResponse($this->paymentService->getPaymentMethods());
     }
     /**
-     * Statically supported payment methods the merchant currently has enabled in their Worldline
-     * account (per a default FR/EUR products query).
-     *
-     * @return PaymentMethodsResponse
-     *
-     * @throws InvalidAutomaticCaptureValueException
-     * @throws InvalidPaymentAttemptsNumberException
-     * @throws InvalidPaymentProductIdException
-     * @throws InvalidSessionTimeoutException
-     */
-    public function getAvailablePaymentMethods(): PaymentMethodsResponse
-    {
-        return new PaymentMethodsResponse($this->paymentService->getAvailablePaymentMethods());
-    }
-    /**
-     * Statically supported payment methods the merchant does NOT have enabled in their Worldline
-     * account - the complement of getAvailablePaymentMethods() within the supported catalogue, and
-     * the "unavailable payment methods" list of the V2 functional requirements (p7).
-     *
-     * Same response shape as list()/getAvailablePaymentMethods(), so a consumer needs no second
-     * mapping. Products the active brand excludes appear in neither list.
-     *
-     * @return PaymentMethodsResponse
-     *
-     * @throws InvalidAutomaticCaptureValueException
-     * @throws InvalidPaymentAttemptsNumberException
-     * @throws InvalidPaymentProductIdException
-     * @throws InvalidSessionTimeoutException
-     */
-    public function getUnavailablePaymentMethods(): PaymentMethodsResponse
-    {
-        return new PaymentMethodsResponse($this->paymentService->getUnavailablePaymentMethods());
-    }
-    /**
-     * @param string[] $orderedProductIds Product ids in the desired checkout display order.
-     *
-     * @return PaymentMethodSaveResponse
-     *
-     * @throws InvalidAutomaticCaptureValueException
-     * @throws InvalidPaymentAttemptsNumberException
-     * @throws InvalidPaymentProductIdException
-     * @throws InvalidSessionTimeoutException
-     */
-    public function reorder(array $orderedProductIds): PaymentMethodSaveResponse
-    {
-        $this->paymentService->reorderPaymentMethods($orderedProductIds);
-        return new PaymentMethodSaveResponse();
-    }
-    /**
      * @param string $paymentProductId
      * @param bool $enabled
      *
@@ -146,12 +97,6 @@ class PaymentController
      */
     public function getPaymentMethod(string $paymentProductId): ApiPaymentMethodResponse
     {
-        return new ApiPaymentMethodResponse(
-            $this->paymentService->getPaymentMethod($paymentProductId),
-            // The single-method read is the one the configuration modal makes, and it is the only one
-            // that renders inherited-vs-set. The listings deliberately do not resolve: it would be an
-            // N+1 over ~50 methods on a page that already fans out to the products API.
-            $this->paymentService->resolveThreeDSSettings($paymentProductId)
-        );
+        return new ApiPaymentMethodResponse($this->paymentService->getPaymentMethod($paymentProductId));
     }
 }

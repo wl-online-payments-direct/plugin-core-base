@@ -29,18 +29,7 @@ class PaymentMethodsResponse extends Response
     {
         $result = [];
         foreach ($this->paymentMethods as $paymentMethod) {
-            $result[] = [
-                'paymentProductId' => $paymentMethod->getPaymentProductId(),
-                'name' => $paymentMethod->getName()->getDefaultTranslation()->toArray(),
-                'paymentGroup' => $paymentMethod->getPaymentGroup(),
-                'integrationTypes' => $paymentMethod->getIntegrationTypes(),
-                'enabled' => $paymentMethod->isEnabled(),
-                // The flow this method is CONFIGURED as, where that is a setting at all; null
-                // otherwise. The admin list labels a card brand by this rather than by
-                // `integrationTypes`, which lists the flows the product supports - a brand supports
-                // several and runs as one, so the capability list cannot name the row.
-                'flowType' => $paymentMethod->getFlowType(),
-            ];
+            $result[] = ['paymentProductId' => $paymentMethod->getPaymentProductId(), 'name' => $paymentMethod->getName()->getDefaultTranslation()->toArray(), 'paymentGroup' => $paymentMethod->getPaymentGroup(), 'integrationTypes' => $paymentMethod->getIntegrationTypes(), 'enabled' => $paymentMethod->isEnabled()];
         }
         return $result;
     }

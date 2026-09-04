@@ -3,7 +3,6 @@
 namespace WOP\OnlinePayments\Core\BusinessLogic\AdminConfig\ApiFacades\GeneralSettingsAPI\Response;
 
 use WOP\OnlinePayments\Core\BusinessLogic\Domain\ApiFacades\Response\Response;
-use WOP\OnlinePayments\Core\BusinessLogic\Domain\ApiFacades\Response\ThreeDSSettingsSerializer;
 use WOP\OnlinePayments\Core\BusinessLogic\Domain\GeneralSettings\GeneralSettingsResponse as DomainGeneralSettingsResponse;
 use WOP\OnlinePayments\Core\BusinessLogic\Domain\Webhook\WebhookMode;
 /**
@@ -38,24 +37,11 @@ class GeneralSettingsResponse extends Response
     }
     protected function paymentSettingsToArray(): array
     {
-        return array_merge(['paymentAction' => $this->response->getPaymentSettings()->getPaymentAction()->getType(), 'automaticCapture' => $this->response->getPaymentSettings()->getAutomaticCapture()->getValue(), 'numberOfPaymentAttempts' => $this->response->getPaymentSettings()->getPaymentAttemptsNumber()->getPaymentAttemptsNumber(), 'applySurcharge' => $this->response->getPaymentSettings()->isApplySurcharge(), 'paymentCapturedStatus' => $this->response->getPaymentSettings()->getPaymentCapturedStatus(), 'paymentErrorStatus' => $this->response->getPaymentSettings()->getPaymentErrorStatus(), 'paymentPendingStatus' => $this->response->getPaymentSettings()->getPaymentPendingStatus(), 'paymentAuthorizedStatus' => $this->response->getPaymentSettings()->getPaymentAuthorizedStatus(), 'paymentCancelledStatus' => $this->response->getPaymentSettings()->getPaymentCancelledStatus(), 'paymentRefundedStatus' => $this->response->getPaymentSettings()->getPaymentRefundedStatus(), 'paymentPartiallyRefundedStatus' => $this->response->getPaymentSettings()->getPaymentPartiallyRefundedStatus(), 'sendShoppingCart' => $this->response->getPaymentSettings()->isSendShoppingCart(), 'skipConfirmationPage' => $this->response->getPaymentSettings()->isSkipConfirmationPage(), 'sessionTimeout' => $this->response->getPaymentSettings()->getSessionTimeout()->getMinutes(), 'fallbackLocale' => $this->response->getPaymentSettings()->getFallbackLocale()], $this->defaultMethodSettingsToArray());
-    }
-    /**
-     * The store-level Default Settings baseline. `threeDSSettings` is NULL when the merchant has
-     * never configured one - which is not the same as a block full of defaults, and is what lets the
-     * cascade tell "inherit the baseline" from "there is no baseline" (ADR-0003 decisions 2 and 6).
-     *
-     * @return array
-     */
-    protected function defaultMethodSettingsToArray(): array
-    {
-        $defaultMethodSettings = $this->response->getPaymentSettings()->getDefaultMethodSettings();
-        $threeDSSettings = $defaultMethodSettings->getThreeDSSettings();
-        return ['threeDSSettings' => $threeDSSettings ? ThreeDSSettingsSerializer::toArray($threeDSSettings) : null, 'templateIdHostedCheckout' => $defaultMethodSettings->getTemplateIdHostedCheckout(), 'templateIdEmbeddedCheckout' => $defaultMethodSettings->getTemplateIdEmbeddedCheckout()];
+        return ['paymentAction' => $this->response->getPaymentSettings()->getPaymentAction()->getType(), 'automaticCapture' => $this->response->getPaymentSettings()->getAutomaticCapture()->getValue(), 'numberOfPaymentAttempts' => $this->response->getPaymentSettings()->getPaymentAttemptsNumber()->getPaymentAttemptsNumber(), 'applySurcharge' => $this->response->getPaymentSettings()->isApplySurcharge(), 'paymentCapturedStatus' => $this->response->getPaymentSettings()->getPaymentCapturedStatus(), 'paymentErrorStatus' => $this->response->getPaymentSettings()->getPaymentErrorStatus(), 'paymentPendingStatus' => $this->response->getPaymentSettings()->getPaymentPendingStatus(), 'paymentAuthorizedStatus' => $this->response->getPaymentSettings()->getPaymentAuthorizedStatus(), 'paymentCancelledStatus' => $this->response->getPaymentSettings()->getPaymentCancelledStatus(), 'paymentRefundedStatus' => $this->response->getPaymentSettings()->getPaymentRefundedStatus(), 'template' => $this->response->getPaymentSettings()->getTemplate(), 'paymentPartiallyRefundedStatus' => $this->response->getPaymentSettings()->getPaymentPartiallyRefundedStatus(), 'sendShoppingCart' => $this->response->getPaymentSettings()->isSendShoppingCart(), 'displayConfirmationPage' => $this->response->getPaymentSettings()->isDisplayConfirmationPage()];
     }
     protected function logSettingsToArray(): array
     {
-        return ['webhookLogging' => $this->response->getLogSettings()->isWebhookLogging(), 'requestResponseLogging' => $this->response->getLogSettings()->isRequestResponseLogging(), 'logDays' => $this->response->getLogSettings()->getLogRecordsLifetime()->getDays()];
+        return ['debugMode' => $this->response->getLogSettings()->isDebugMode(), 'logDays' => $this->response->getLogSettings()->getLogRecordsLifetime()->getDays()];
     }
     protected function payByLinkSettingsToArray(): array
     {

@@ -26,10 +26,10 @@ class HostedTokenizationProxy implements HostedTokenizationProxyInterface
     {
         $this->clientFactory = $clientFactory;
     }
-    public function create(Cart $cart, array $savedTokens = [], ?PaymentProductId $productId = null, string $template = '', string $fallbackLocale = 'en_GB', array $allowedBrands = []): HostedTokenization
+    public function create(Cart $cart, array $savedTokens = [], ?PaymentProductId $productId = null, string $template = ''): HostedTokenization
     {
         ContextLogProvider::getInstance()->setCurrentOrder($cart->getMerchantReference());
-        return CreateHostedTokenizationResponseTransformer::transform($this->clientFactory->get()->hostedTokenization()->createHostedTokenization(CreateHostedTokenizationRequestTransformer::transform($cart, $savedTokens, $productId, $template, $fallbackLocale, $allowedBrands)));
+        return CreateHostedTokenizationResponseTransformer::transform($this->clientFactory->get()->hostedTokenization()->createHostedTokenization(CreateHostedTokenizationRequestTransformer::transform($cart, $savedTokens, $productId, $template)));
     }
     public function getToken(string $customerId, string $tokenId): ?Token
     {

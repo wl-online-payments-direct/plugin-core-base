@@ -4,7 +4,6 @@ namespace WOP\OnlinePayments\Core\Bootstrap\ApiFacades\PaymentProcessor\Backgrou
 
 use WOP\OnlinePayments\Core\BusinessLogic\Domain\Multistore\TenantRegistryInterface;
 use WOP\OnlinePayments\Core\BusinessLogic\Domain\Time\TimeProviderInterface;
-use WOP\OnlinePayments\Core\BusinessLogic\PaymentProcessor\BackgroundProcesses\FallbackCheckSchedule;
 use WOP\OnlinePayments\Core\Infrastructure\TaskExecution\QueueService;
 /**
  * Class TransactionStatusCheckListener.
@@ -33,11 +32,8 @@ class TransactionStatusCheckListener
     {
         $taskType = $this->tenantRegistry->isMultiTenant() ? TransactionStatusCheckOrchestratorTask::getClassName() : TransactionStatusCheckTask::getClassName();
         $task = $this->queueService->findLatestByType($taskType);
-        // Gated by the schedule's finest-grained step - individual transactions are further filtered
-        // against their own due time by FallbackCheckSchedule inside TransactionStatusCheckTask.
-        $minutes = FallbackCheckSchedule::minimumIntervalInMinutes();
-        $throttleCutoff = $this->timeProvider->getCurrentLocalTime()->sub(new \DateInterval("PT{$minutes}M"));
-        return !$task || $task->getQueueTimestamp() < $throttleCutoff->getTimestamp();
+        $fifteenMinutesBeforeNow = $this->timeProvider->getCurrentLocalTime()->sub(new \DateInterval('PT15M'));
+        return !$task || $task->getQueueTimestamp() < $fifteenMinutesBeforeNow->getTimestamp();
     }
     protected function doHandle(): void
     {

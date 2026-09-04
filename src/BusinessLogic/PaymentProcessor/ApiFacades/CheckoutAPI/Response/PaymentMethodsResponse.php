@@ -29,14 +29,9 @@ class PaymentMethodsResponse extends Response
      */
     public function toArray(): array
     {
-        return [
-            // array_values() first: the collection's internal keys are numeric-string product ids,
-            // which array_map() would otherwise preserve - turning this into a JSON object whose
-            // integer-like keys get re-sorted ascending on the JS side, silently discarding order.
-            'availablePaymentMethods' => array_map(static function (PaymentMethod $paymentMethod) {
-                return ['productId' => (string) $paymentMethod->getProductId(), 'name' => $paymentMethod->getName()->toArray()];
-            }, array_values($this->availablePaymentMethods->toArray())),
-        ];
+        return ['availablePaymentMethods' => array_map(static function (PaymentMethod $paymentMethod) {
+            return ['productId' => (string) $paymentMethod->getProductId(), 'name' => $paymentMethod->getName()->toArray()];
+        }, $this->availablePaymentMethods->toArray())];
     }
     /**
      * @return PaymentMethodCollection

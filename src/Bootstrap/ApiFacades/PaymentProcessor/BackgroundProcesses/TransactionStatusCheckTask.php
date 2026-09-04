@@ -6,9 +6,6 @@ use WOP\OnlinePayments\Core\Bootstrap\ApiFacades\PaymentProcessor\CheckoutAPI\Ch
 use WOP\OnlinePayments\Core\Bootstrap\DataAccess\PaymentTransaction\PendingTransactionsRepository;
 use WOP\OnlinePayments\Core\Bootstrap\TaskExecution\TenantAwareTask;
 use WOP\OnlinePayments\Core\BusinessLogic\Domain\Multistore\StoreContext;
-use WOP\OnlinePayments\Core\BusinessLogic\Domain\Payment\Repositories\PaymentTransactionRepositoryInterface;
-use WOP\OnlinePayments\Core\BusinessLogic\Domain\Time\TimeProviderInterface;
-use WOP\OnlinePayments\Core\BusinessLogic\PaymentProcessor\BackgroundProcesses\FallbackCheckSchedule;
 use WOP\OnlinePayments\Core\Infrastructure\Serializer\Interfaces\Serializable;
 use WOP\OnlinePayments\Core\Infrastructure\Serializer\Serializer;
 use WOP\OnlinePayments\Core\Infrastructure\ServiceRegister;
@@ -28,18 +25,9 @@ class TransactionStatusCheckTask extends TenantAwareTask
      */
     protected function doExecute(): void
     {
-        $now = $this->getTimeProvider()->getCurrentLocalTime();
-        foreach ($this->getPendingTransactionsRepository()->get() as $entity) {
-            $transaction = $entity->getPaymentTransaction();
-            if (!FallbackCheckSchedule::isDue($transaction->getCreatedAt(), $transaction->getFallbackCheckAttempts(), $now)) {
-                continue;
-            }
-            $transaction->setFallbackCheckAttempts($transaction->getFallbackCheckAttempts() + 1);
-            StoreContext::doWithStore($entity->getStoreId(), function () use ($transaction) {
-                $this->getPaymentTransactionRepository()->save($transaction);
-            });
+        foreach ($this->getPendingTransactionsRepository()->get() as $paymentTransaction) {
             StoreContext::getInstance()->setOrigin('fallback');
-            CheckoutAPI::get()->forTenant($this->tenantId)->payment($entity->getStoreId())->updateOrderStatus($transaction->getPaymentId(), $transaction->getReturnHmac());
+            CheckoutAPI::get()->forTenant($this->tenantId)->payment($paymentTransaction->getStoreId())->updateOrderStatus($paymentTransaction->getPaymentTransaction()->getPaymentId(), $paymentTransaction->getPaymentTransaction()->getReturnHmac());
             $this->reportAlive();
         }
         $this->reportProgress(100);
@@ -76,13 +64,5 @@ class TransactionStatusCheckTask extends TenantAwareTask
     protected function getPendingTransactionsRepository(): PendingTransactionsRepository
     {
         return ServiceRegister::getService(PendingTransactionsRepository::class);
-    }
-    protected function getPaymentTransactionRepository(): PaymentTransactionRepositoryInterface
-    {
-        return ServiceRegister::getService(PaymentTransactionRepositoryInterface::class);
-    }
-    protected function getTimeProvider(): TimeProviderInterface
-    {
-        return ServiceRegister::getService(TimeProviderInterface::class);
     }
 }

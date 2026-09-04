@@ -6,7 +6,6 @@ use DateTime;
 use Exception;
 use WOP\OnlinePayments\Core\Branding\Brand\ActiveBrandProviderInterface;
 use WOP\OnlinePayments\Core\BusinessLogic\AdminConfig\Services\Disconnect\Repositories\DisconnectRepositoryInterface;
-use WOP\OnlinePayments\Core\BusinessLogic\AdminConfig\Services\GeneralSettings\Repositories\LogSettingsRepositoryInterface;
 use WOP\OnlinePayments\Core\BusinessLogic\Domain\Monitoring\Repositories\WebhookLogRepositoryInterface;
 use WOP\OnlinePayments\Core\BusinessLogic\Domain\Monitoring\WebhookLog;
 use WOP\OnlinePayments\Core\BusinessLogic\Domain\Monitoring\WebhookStatuses;
@@ -27,23 +26,20 @@ class WebhookLogsService
     protected DisconnectRepositoryInterface $disconnectRepository;
     protected ActiveBrandProviderInterface $activeBrandProvider;
     protected PaymentTransactionRepositoryInterface $paymentTransactionRepository;
-    protected LogSettingsRepositoryInterface $logSettingsRepository;
     /**
      * @param WebhookLogRepositoryInterface $repository
      * @param PaymentsProxyInterface $paymentsProxy
      * @param DisconnectRepositoryInterface $disconnectRepository
      * @param ActiveBrandProviderInterface $activeBrandProvider
      * @param PaymentTransactionRepositoryInterface $paymentTransactionRepository
-     * @param LogSettingsRepositoryInterface $logSettingsRepository
      */
-    public function __construct(WebhookLogRepositoryInterface $repository, PaymentsProxyInterface $paymentsProxy, DisconnectRepositoryInterface $disconnectRepository, ActiveBrandProviderInterface $activeBrandProvider, PaymentTransactionRepositoryInterface $paymentTransactionRepository, LogSettingsRepositoryInterface $logSettingsRepository)
+    public function __construct(WebhookLogRepositoryInterface $repository, PaymentsProxyInterface $paymentsProxy, DisconnectRepositoryInterface $disconnectRepository, ActiveBrandProviderInterface $activeBrandProvider, PaymentTransactionRepositoryInterface $paymentTransactionRepository)
     {
         $this->repository = $repository;
         $this->paymentsProxy = $paymentsProxy;
         $this->disconnectRepository = $disconnectRepository;
         $this->activeBrandProvider = $activeBrandProvider;
         $this->paymentTransactionRepository = $paymentTransactionRepository;
-        $this->logSettingsRepository = $logSettingsRepository;
     }
     /**
      * @param WebhookData $webhookData
@@ -54,17 +50,9 @@ class WebhookLogsService
      */
     public function logWebhook(WebhookData $webhookData): void
     {
-        if (!$this->isWebhookLoggingEnabled()) {
-            return;
-        }
         $webhookPaymentId = PaymentId::parse($webhookData->getId());
         $webhookLog = new WebhookLog($webhookData->getMerchantReference(), $webhookData->getId(), $this->resolvePaymentMethodName($webhookPaymentId), WebhookStatuses::statusMap[$webhookData->getStatusCategory()], $webhookData->getType(), new DateTime($webhookData->getCreated()), $webhookData->getStatusCode(), $webhookData->getWebhookBody(), $this->activeBrandProvider->getTransactionUrl() . $webhookPaymentId->getTransactionId());
         $this->repository->saveWebhookLog($webhookLog);
-    }
-    private function isWebhookLoggingEnabled(): bool
-    {
-        $logSettings = $this->logSettingsRepository->getLogSettings();
-        return $logSettings && $logSettings->isWebhookLogging();
     }
     /**
      * Resolves the payment method name used to enrich the webhook log entry.

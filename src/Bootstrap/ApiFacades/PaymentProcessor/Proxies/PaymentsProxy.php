@@ -35,7 +35,7 @@ class PaymentsProxy implements PaymentsProxyInterface
     {
         $this->clientFactory = $clientFactory;
     }
-    public function create(PaymentRequest $request, ThreeDSSettings $cardsSettings, PaymentSettings $paymentSettings, ?Token $token = null, ?PaymentAction $paymentAction = null, string $fallbackLocale = ''): PaymentResponse
+    public function create(PaymentRequest $request, ThreeDSSettings $cardsSettings, PaymentSettings $paymentSettings, ?Token $token = null, ?PaymentAction $paymentAction = null): PaymentResponse
     {
         ContextLogProvider::getInstance()->setCurrentOrder($request->getCartProvider()->get()->getMerchantReference());
         $paymentRequest = CreatePaymentRequestTransformer::transform($request, $cardsSettings, $paymentSettings, $token, $paymentAction);
