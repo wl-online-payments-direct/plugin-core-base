@@ -86,7 +86,7 @@ class PaymentMethodService
      * @param CartProvider $cartProvider
      * @return bool
      */
-    private function isMealvouchersEligible(CartProvider $cartProvider): bool
+    protected function isMealvouchersEligible(CartProvider $cartProvider): bool
     {
         if (empty($cartProvider->get()->getCustomer()->getContactDetails()->getEmail())) {
             return \false;
